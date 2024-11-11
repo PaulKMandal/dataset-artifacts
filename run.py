@@ -6,6 +6,8 @@ from helpers import prepare_dataset_nli, prepare_train_dataset_qa, \
     prepare_validation_dataset_qa, QuestionAnsweringTrainer, compute_accuracy
 import os
 import json
+import numpy as np
+from collections import defaultdict
 
 NUM_PREPROCESSING_WORKERS = 2
 
@@ -47,6 +49,8 @@ def main():
                       help='Limit the number of examples to train on.')
     argp.add_argument('--max_eval_samples', type=int, default=None,
                       help='Limit the number of examples to evaluate on.')
+    argp.add_argument('--track_dynamics', action='store_true', 
+                  help="Enable dataset cartography tracking (confidence, variability, correctness).")
 
     training_args, args = argp.parse_args_into_dataclasses()
 
@@ -155,6 +159,23 @@ def main():
         eval_predictions = eval_preds
         return compute_metrics(eval_preds)
 
+    # Tracking training dynamics
+    training_dynamics = defaultdict(lambda: {"confidences": [], "correctness": []})
+    
+    def compute_metrics_and_store_dynamics(eval_preds):
+        # Calculate confidence
+        predictions = np.argmax(eval_preds.predictions, axis=1)
+        softmax_preds = np.exp(eval_preds.predictions) / np.sum(np.exp(eval_preds.predictions), axis=1, keepdims=True)
+        confidences = softmax_preds[np.arange(len(predictions)), eval_preds.label_ids]
+        
+        for i, (pred, conf, label) in enumerate(zip(predictions, confidences, eval_preds.label_ids)):
+            training_dynamics[i]["confidences"].append(conf)
+            training_dynamics[i]["correctness"].append(pred == label)
+        
+        return compute_metrics(eval_preds)
+
+    compute_metrics_function = compute_metrics_and_store_dynamics if args.track_dynamics else compute_metrics_and_store_predictions
+
     # Initialize the Trainer object with the specified arguments and the model and dataset we loaded above
     trainer = trainer_class(
         model=model,
@@ -162,7 +183,7 @@ def main():
         train_dataset=train_dataset_featurized,
         eval_dataset=eval_dataset_featurized,
         tokenizer=tokenizer,
-        compute_metrics=compute_metrics_and_store_predictions
+        compute_metrics=compute_metrics_function #Default is compute_metrics_and_store_predictions
     )
     # Train and/or evaluate
     if training_args.do_train:
@@ -174,6 +195,13 @@ def main():
         # You can also add training hooks using Trainer.add_callback:
         #   See https://huggingface.co/transformers/main_classes/trainer.html#transformers.Trainer.add_callback
         #   and https://huggingface.co/transformers/main_classes/callback.html#transformers.TrainerCallback
+        if args.track_dynamics:
+            # Save dynamics for dataset cartography
+            with open(os.path.join(training_args.output_dir, 'training_dynamics.json'), 'w') as f:
+                json.dump({k: {"confidence": np.mean(v["confidences"]),
+                               "variability": np.std(v["confidences"]),
+                               "correctness": np.mean(v["correctness"])}
+                           for k, v in training_dynamics.items()}, f, indent=4)
 
     if training_args.do_eval:
         results = trainer.evaluate(**eval_kwargs)
