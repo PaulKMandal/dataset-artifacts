@@ -198,10 +198,13 @@ def main():
         if args.track_dynamics:
             # Save dynamics for dataset cartography
             with open(os.path.join(training_args.output_dir, 'training_dynamics.json'), 'w') as f:
-                json.dump({k: {"confidence": np.mean(v["confidences"]),
-                               "variability": np.std(v["confidences"]),
-                               "correctness": np.mean(v["correctness"])}
-                           for k, v in training_dynamics.items()}, f, indent=4)
+                json.dump({example_id: {
+                            "confidence": np.mean(data["confidences"]),
+                            "variability": np.std(data["confidences"]),
+                            "correctness": np.mean(data["correctness"])
+                           }
+                           for example_id, data in training_dynamics.items()}, f, indent=4)
+
 
     if training_args.do_eval:
         results = trainer.evaluate(**eval_kwargs)
