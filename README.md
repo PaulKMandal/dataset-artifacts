@@ -1,13 +1,13 @@
-# fp-dataset-artifacts
+# dataset-artifacts
 
-Project by Kaj Bostrom, Jifan Chen, and Greg Durrett. Code by Kaj Bostrom and Jifan Chen.
+Project by Kaj Bostrom, Jifan Chen, and Greg Durrett. Code by Kaj Bostrom and Jifan Chen. Modified by Paul Mandal
 
 ## Getting Started
 You'll need Python >= 3.6 to run the code in this repo.
 
 First, clone the repository:
 
-`git clone git@github.com:gregdurrett/fp-dataset-artifacts.git`
+`git clone git@github.com:PaulKMandal/dataset-artifacts.git`
 
 Then install the dependencies:
 
@@ -25,16 +25,18 @@ and check that the path it reports is for the right Python interpreter.
 ## Training and evaluating a model
 To train an ELECTRA-small model on the SNLI natural language inference dataset, you can run the following command:
 
-`python3 run.py --do_train --task nli --dataset snli --output_dir ./trained_model/`
+`python3 run.py --do_train --task nli --dataset snli --output_dir ./snli_trained_model/`
 
 Checkpoints will be written to sub-folders of the `trained_model` output directory.
 To evaluate the final trained model on the SNLI dev set, you can use
 
-`python3 run.py --do_eval --task nli --dataset snli --model ./trained_model/ --output_dir ./eval_output/`
+`python3 run.py --do_eval --task nli --dataset snli --model ./snli_trained_model/ --output_dir ./nli_eval_output/`
 
 To prevent `run.py` from trying to use a GPU for training, pass the argument `--no_cuda`.
 
-To train/evaluate a question answering model on SQuAD instead, change `--task nli` and `--dataset snli` to `--task qa` and `--dataset squad`.
+To train/evaluate a question answering model on SQuAD instead, change `--task nli` and `--dataset snli` to `--task qa` and `--dataset squad`. E.g.
+
+`python3 run.py --do_train --task qa --dataset squad --output_dir ./squad_trained_model/`
 
 **Descriptions of other important arguments are available in the comments in `run.py`.**
 
