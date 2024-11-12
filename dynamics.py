@@ -102,15 +102,19 @@ def plot_scatter(metrics, categories, output_dir, limit_scatter_samples=None, se
     x = []
     y = []
     colors = []
-    category_colors = {'Easy-to-learn': 'green', 'Ambiguous': 'orange', 'Hard-to-learn': 'red'}
+    category_colors = {
+        'Easy-to-learn': 'green',
+        'Ambiguous': 'orange',  # Changed from 'orange' to 'black'
+        'Hard-to-learn': 'red'
+    }
     for idx in indices:
         m = metrics[idx]
         x.append(m['variability'])
         y.append(m['avg_confidence'])
         colors.append(category_colors[categories[idx]])
 
-    plt.figure(figsize=(10, 6))
-    plt.scatter(x, y, c=colors, alpha=0.6, edgecolors='w', s=50)
+    plt.figure(figsize=(6, 6))
+    plt.scatter(x, y, c=colors, alpha=.7, s=1)  # Dots are smaller, solid color
     plt.xlabel('Variability (Std Dev of Confidence)')
     plt.ylabel('Average Confidence in True Class')
     plt.title('Confidence vs. Variability Scatter Plot')
@@ -120,11 +124,11 @@ def plot_scatter(metrics, categories, output_dir, limit_scatter_samples=None, se
     from matplotlib.lines import Line2D
     legend_elements = [
         Line2D([0], [0], marker='o', color='w', label='Easy-to-learn',
-               markerfacecolor='green', markersize=10),
+               markerfacecolor='green', markersize=8),
         Line2D([0], [0], marker='o', color='w', label='Ambiguous',
-               markerfacecolor='orange', markersize=10),
+               markerfacecolor='orange', markersize=8),
         Line2D([0], [0], marker='o', color='w', label='Hard-to-learn',
-               markerfacecolor='red', markersize=10)
+               markerfacecolor='red', markersize=8)
     ]
     plt.legend(handles=legend_elements)
     plt.tight_layout()
