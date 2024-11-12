@@ -1,13 +1,11 @@
 import datasets
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, \
-    AutoModelForQuestionAnswering, Trainer, TrainingArguments, HfArgumentParser
+    AutoModelForQuestionAnswering, TrainingArguments, HfArgumentParser
 import evaluate
 from helpers import prepare_dataset_nli, prepare_train_dataset_qa, \
-    prepare_validation_dataset_qa, QuestionAnsweringTrainer, compute_accuracy
+    prepare_validation_dataset_qa, CustomTrainer, CustomQuestionAnsweringTrainer, compute_accuracy
 import os
 import json
-import numpy as np
-from collections import defaultdict
 
 NUM_PREPROCESSING_WORKERS = 2
 
@@ -49,17 +47,22 @@ def main():
                       help='Limit the number of examples to train on.')
     argp.add_argument('--max_eval_samples', type=int, default=None,
                       help='Limit the number of examples to evaluate on.')
-    argp.add_argument('--track_dynamics', action='store_true', 
-                  help="Enable dataset cartography tracking (confidence, variability, correctness).")
+
+    # Add the new flag
+    argp.add_argument('--save_only_final_model', action='store_true',
+                      help='When set, only the final model will be saved, not intermediate checkpoints.')
 
     training_args, args = argp.parse_args_into_dataclasses()
 
+    # Adjust TrainingArguments if save_only_final_model is set
+    if args.save_only_final_model:
+        training_args.save_strategy = 'no'  # Do not save checkpoints during training
+    else:
+        # Default behavior: save checkpoints at each epoch
+        training_args.save_strategy = 'epoch'
+
     # Dataset selection
-    # IMPORTANT: this code path allows you to load custom datasets different from the standard SQuAD or SNLI ones.
-    # You need to format the dataset appropriately. For SNLI, you can prepare a file with each line containing one
-    # example as follows:
-    # {"premise": "Two women are embracing.", "hypothesis": "The sisters are hugging.", "label": 1}
-    if args.dataset.endswith('.json') or args.dataset.endswith('.jsonl'):
+    if args.dataset and (args.dataset.endswith('.json') or args.dataset.endswith('.jsonl')):
         dataset_id = None
         # Load from local json/jsonl file
         dataset = datasets.load_dataset('json', data_files=args.dataset)
@@ -75,7 +78,7 @@ def main():
         eval_split = 'validation_matched' if dataset_id == ('glue', 'mnli') else 'validation'
         # Load the raw data
         dataset = datasets.load_dataset(*dataset_id)
-    
+
     # NLI models need to have the output label count specified (label 0 is "entailed", 1 is "neutral", and 2 is "contradiction")
     task_kwargs = {'num_labels': 3} if args.task == 'nli' else {}
 
@@ -99,7 +102,6 @@ def main():
     elif args.task == 'nli':
         prepare_train_dataset = prepare_eval_dataset = \
             lambda exs: prepare_dataset_nli(exs, tokenizer, args.max_length)
-        # prepare_eval_dataset = prepare_dataset_nli
     else:
         raise ValueError('Unrecognized task name: {}'.format(args.task))
 
@@ -107,7 +109,7 @@ def main():
     if dataset_id == ('snli',):
         # remove SNLI examples with no label
         dataset = dataset.filter(lambda ex: ex['label'] != -1)
-    
+
     train_dataset = None
     eval_dataset = None
     train_dataset_featurized = None
@@ -116,6 +118,8 @@ def main():
         train_dataset = dataset['train']
         if args.max_train_samples:
             train_dataset = train_dataset.select(range(args.max_train_samples))
+        # Add index to each example
+        train_dataset = train_dataset.map(lambda ex, idx: {'idx': idx}, with_indices=True)
         train_dataset_featurized = train_dataset.map(
             prepare_train_dataset,
             batched=True,
@@ -134,47 +138,32 @@ def main():
         )
 
     # Select the training configuration
-    trainer_class = Trainer
-    eval_kwargs = {}
-    # If you want to use custom metrics, you should define your own "compute_metrics" function.
-    # For an example of a valid compute_metrics function, see compute_accuracy in helpers.py.
     compute_metrics = None
     if args.task == 'qa':
         # For QA, we need to use a tweaked version of the Trainer (defined in helpers.py)
         # to enable the question-answering specific evaluation metrics
-        trainer_class = QuestionAnsweringTrainer
-        eval_kwargs['eval_examples'] = eval_dataset
-        metric = evaluate.load('squad')   # datasets.load_metric() deprecated
+        trainer_class = CustomQuestionAnsweringTrainer
+        metric = evaluate.load('squad')
         compute_metrics = lambda eval_preds: metric.compute(
             predictions=eval_preds.predictions, references=eval_preds.label_ids)
     elif args.task == 'nli':
+        trainer_class = CustomTrainer
         compute_metrics = compute_accuracy
-    
 
     # This function wraps the compute_metrics function, storing the model's predictions
     # so that they can be dumped along with the computed metrics
     eval_predictions = None
+
     def compute_metrics_and_store_predictions(eval_preds):
         nonlocal eval_predictions
         eval_predictions = eval_preds
         return compute_metrics(eval_preds)
 
-    # Tracking training dynamics
-    training_dynamics = defaultdict(lambda: {"confidences": [], "correctness": []})
-    
-    def compute_metrics_and_store_dynamics(eval_preds):
-        # Calculate confidence
-        predictions = np.argmax(eval_preds.predictions, axis=1)
-        softmax_preds = np.exp(eval_preds.predictions) / np.sum(np.exp(eval_preds.predictions), axis=1, keepdims=True)
-        confidences = softmax_preds[np.arange(len(predictions)), eval_preds.label_ids]
-        
-        for i, (pred, conf, label) in enumerate(zip(predictions, confidences, eval_preds.label_ids)):
-            training_dynamics[i]["confidences"].append(conf)
-            training_dynamics[i]["correctness"].append(pred == label)
-        
-        return compute_metrics(eval_preds)
-
-    compute_metrics_function = compute_metrics_and_store_dynamics if args.track_dynamics else compute_metrics_and_store_predictions
+    # Determine label names based on task
+    if args.task == 'qa':
+        label_names = ['start_positions', 'end_positions', 'idx']
+    else:
+        label_names = ['labels', 'idx']
 
     # Initialize the Trainer object with the specified arguments and the model and dataset we loaded above
     trainer = trainer_class(
@@ -183,38 +172,24 @@ def main():
         train_dataset=train_dataset_featurized,
         eval_dataset=eval_dataset_featurized,
         tokenizer=tokenizer,
-        compute_metrics=compute_metrics_function #Default is compute_metrics_and_store_predictions
+        compute_metrics=compute_metrics_and_store_predictions,
+        output_dir=training_args.output_dir
     )
+    # Set label_names after initialization
+    trainer.label_names = label_names
+
+    # For QA, pass eval_examples to the trainer
+    if args.task == 'qa':
+        trainer.eval_examples = eval_dataset
+
     # Train and/or evaluate
     if training_args.do_train:
         trainer.train()
+        # Save the final model
         trainer.save_model()
-        # If you want to customize the way the loss is computed, you should subclass Trainer and override the "compute_loss"
-        # method (see https://huggingface.co/transformers/_modules/transformers/trainer.html#Trainer.compute_loss).
-        #
-        # You can also add training hooks using Trainer.add_callback:
-        #   See https://huggingface.co/transformers/main_classes/trainer.html#transformers.Trainer.add_callback
-        #   and https://huggingface.co/transformers/main_classes/callback.html#transformers.TrainerCallback
-        if args.track_dynamics:
-            # Save dynamics for dataset cartography
-            with open(os.path.join(training_args.output_dir, 'training_dynamics.json'), 'w') as f:
-                json.dump({example_id: {
-                            "confidence": np.mean(data["confidences"]),
-                            "variability": np.std(data["confidences"]),
-                            "correctness": np.mean(data["correctness"])
-                           }
-                           for example_id, data in training_dynamics.items()}, f, indent=4)
-
 
     if training_args.do_eval:
-        results = trainer.evaluate(**eval_kwargs)
-
-        # To add custom metrics, you should replace the "compute_metrics" function (see comments above).
-        #
-        # If you want to change how predictions are computed, you should subclass Trainer and override the "prediction_step"
-        # method (see https://huggingface.co/transformers/_modules/transformers/trainer.html#Trainer.prediction_step).
-        # If you do this your custom prediction_step should probably start by calling super().prediction_step and modifying the
-        # values that it returns.
+        results = trainer.evaluate()
 
         print('Evaluation results:')
         print(results)

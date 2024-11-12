@@ -2,9 +2,11 @@ import numpy as np
 import collections
 from collections import defaultdict, OrderedDict
 from transformers import Trainer, EvalPrediction
-from transformers.trainer_utils import PredictionOutput
 from typing import Tuple
 from tqdm.auto import tqdm
+import torch
+import os
+import json
 
 QA_MAX_ANSWER_LENGTH = 30
 
@@ -22,11 +24,11 @@ def prepare_dataset_nli(examples, tokenizer, max_seq_length=None):
     )
 
     tokenized_examples['label'] = examples['label']
+    tokenized_examples['idx'] = examples['idx']  # Include index in tokenized examples
     return tokenized_examples
 
 
 # This function computes sentence-classification accuracy.
-# Functions with signatures like this one work as the "compute_metrics" argument of transformers.Trainer.
 def compute_accuracy(eval_preds: EvalPrediction):
     return {
         'accuracy': (np.argmax(
@@ -38,13 +40,10 @@ def compute_accuracy(eval_preds: EvalPrediction):
 
 # This function preprocesses a question answering dataset, tokenizing the question and context text
 # and finding the right offsets for the answer spans in the tokenized context (to use as labels).
-# Adapted from https://github.com/huggingface/transformers/blob/master/examples/pytorch/question-answering/run_qa.py
 def prepare_train_dataset_qa(examples, tokenizer, max_seq_length=None):
     questions = [q.lstrip() for q in examples["question"]]
     max_seq_length = tokenizer.model_max_length
     # tokenize both questions and the corresponding context
-    # if the context length is longer than max_length, we split it to several
-    # chunks of max_length
     tokenized_examples = tokenizer(
         questions,
         examples["context"],
@@ -66,6 +65,7 @@ def prepare_train_dataset_qa(examples, tokenizer, max_seq_length=None):
 
     tokenized_examples["start_positions"] = []
     tokenized_examples["end_positions"] = []
+    tokenized_examples["idx"] = []
 
     for i, offsets in enumerate(offset_mapping):
         input_ids = tokenized_examples["input_ids"][i]
@@ -76,6 +76,9 @@ def prepare_train_dataset_qa(examples, tokenizer, max_seq_length=None):
         sample_index = sample_mapping[i]
         # get the answer for a feature
         answers = examples["answers"][sample_index]
+
+        # Add idx
+        tokenized_examples["idx"].append(examples["idx"][sample_index])
 
         if len(answers["answer_start"]) == 0:
             tokenized_examples["start_positions"].append(cls_index)
@@ -102,7 +105,6 @@ def prepare_train_dataset_qa(examples, tokenizer, max_seq_length=None):
                 tokenized_examples["end_positions"].append(cls_index)
             else:
                 # Otherwise move the token_start_index and token_end_index to the two ends of the answer.
-                # Note: we could go after the last offset if the answer is the last word (edge case).
                 while token_start_index < len(offsets) and \
                         offsets[token_start_index][0] <= start_char:
                     token_start_index += 1
@@ -158,7 +160,6 @@ def prepare_validation_dataset_qa(examples, tokenizer):
 
 # This function uses start and end position scores predicted by a question answering model to
 # select and extract the predicted answer span from the context.
-# Adapted from https://github.com/huggingface/transformers/blob/master/examples/pytorch/question-answering/utils_qa.py
 def postprocess_qa_predictions(examples,
                                features,
                                predictions: Tuple[np.ndarray, np.ndarray],
@@ -205,8 +206,7 @@ def postprocess_qa_predictions(examples,
                           -1: -n_best_size - 1: -1].tolist()
             for start_index in start_indexes:
                 for end_index in end_indexes:
-                    # Don't consider out-of-scope answers, either because the indices are out of bounds or correspond
-                    # to part of the input_ids that are not in the context.
+                    # Don't consider out-of-scope answers.
                     if (
                             start_index >= len(offset_mapping)
                             or end_index >= len(offset_mapping)
@@ -251,9 +251,102 @@ def postprocess_qa_predictions(examples,
     return all_predictions
 
 
-# Adapted from https://github.com/huggingface/transformers/blob/master/examples/pytorch/question-answering/trainer_qa.py
-class QuestionAnsweringTrainer(Trainer):
+# Mixin class to log and save training dynamics
+class DynamicsLogger:
+    def __init__(self, *args, output_dir=None, **kwargs):
+        # Remove 'label_names' from kwargs before calling super().__init__()
+        self.label_names = kwargs.pop('label_names', ['labels'])
+        super().__init__(*args, **kwargs)
+        self.training_dynamics = defaultdict(list)
+        self.output_dir = output_dir or self.args.output_dir
+
+    def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
+        # Extract 'idx' from inputs and remove it before passing to model
+        idxs = inputs['idx']
+        inputs = {k: v for k, v in inputs.items() if k != 'idx'}
+        outputs = model(**inputs)
+        loss = outputs.loss
+
+        # Check for labels in inputs
+        if 'labels' in inputs:
+            # NLI task
+            labels = inputs['labels']
+            logits = outputs.logits
+
+            probs = torch.nn.functional.softmax(logits, dim=-1)
+
+            labels_np = labels.detach().cpu().numpy()
+            idxs_np = idxs.detach().cpu().numpy()
+            probs_np = probs.detach().cpu().numpy()
+
+            # Log training dynamics
+            for idx, label, prob in zip(idxs_np, labels_np, probs_np):
+                self.training_dynamics[idx].append({
+                    'epoch': int(self.state.epoch),
+                    'label': int(label),
+                    'prob': prob.tolist()
+                })
+        elif 'start_positions' in inputs and 'end_positions' in inputs:
+            # QA task
+            start_positions = inputs['start_positions']
+            end_positions = inputs['end_positions']
+            start_logits = outputs.start_logits
+            end_logits = outputs.end_logits
+
+            start_probs = torch.nn.functional.softmax(start_logits, dim=-1)
+            end_probs = torch.nn.functional.softmax(end_logits, dim=-1)
+
+            start_positions_np = start_positions.detach().cpu().numpy()
+            end_positions_np = end_positions.detach().cpu().numpy()
+            idxs_np = idxs.detach().cpu().numpy()
+            start_probs_np = start_probs.detach().cpu().numpy()
+            end_probs_np = end_probs.detach().cpu().numpy()
+
+            # Log training dynamics
+            for idx, start_pos, end_pos, start_prob, end_prob in zip(
+                idxs_np, start_positions_np, end_positions_np, start_probs_np, end_probs_np
+            ):
+                self.training_dynamics[idx].append({
+                    'epoch': int(self.state.epoch),
+                    'start_position': int(start_pos),
+                    'end_position': int(end_pos),
+                    'start_prob': start_prob.tolist(),
+                    'end_prob': end_prob.tolist()
+                })
+        else:
+            raise ValueError("Could not find labels in inputs.")
+
+        if return_outputs:
+            return (loss, outputs)
+        else:
+            return loss
+
+    def _save_training_dynamics(self):
+        # Save the training dynamics to disk
+        output_file = os.path.join(self.output_dir, 'training_dynamics.jsonl')
+        with open(output_file, 'w') as f:
+            for idx, dynamics in self.training_dynamics.items():
+                for record in dynamics:
+                    record['idx'] = int(idx)
+                    f.write(json.dumps(record) + '\n')
+
+    def train(self, *args, **kwargs):
+        # Override the train method to save dynamics after training
+        super().train(*args, **kwargs)
+        # After training, save the training dynamics
+        self._save_training_dynamics()
+
+
+# Custom Trainer for NLI tasks
+class CustomTrainer(DynamicsLogger, Trainer):
+    pass
+
+
+# Custom Trainer for QA tasks
+class CustomQuestionAnsweringTrainer(DynamicsLogger, Trainer):
     def __init__(self, *args, eval_examples=None, **kwargs):
+        # Remove 'label_names' from kwargs before calling super().__init__()
+        self.label_names = kwargs.pop('label_names', ['start_positions', 'end_positions'])
         super().__init__(*args, **kwargs)
         self.eval_examples = eval_examples
 
@@ -275,8 +368,6 @@ class QuestionAnsweringTrainer(Trainer):
             output = self.evaluation_loop(
                 eval_dataloader,
                 description="Evaluation",
-                # No point gathering the predictions if there are no metrics, otherwise we defer to
-                # self.args.prediction_loss_only
                 prediction_loss_only=True if compute_metrics is None else None,
                 ignore_keys=ignore_keys,
             )
@@ -285,7 +376,6 @@ class QuestionAnsweringTrainer(Trainer):
 
         if self.compute_metrics is not None:
             # post process the raw predictions to get the final prediction
-            # (from start_logits, end_logits to an answer string)
             eval_preds = postprocess_qa_predictions(eval_examples,
                                                     eval_dataset,
                                                     output.predictions)
