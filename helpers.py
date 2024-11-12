@@ -253,68 +253,79 @@ def postprocess_qa_predictions(examples,
 
 # Mixin class to log and save training dynamics
 class DynamicsLogger:
-    def __init__(self, *args, output_dir=None, **kwargs):
+    def __init__(self, *args, **kwargs):
+        self.save_dynamics = kwargs.pop('save_dynamics', False)
+        # Remove 'output_dir' from kwargs to prevent TypeError in Trainer.__init__
+        self.output_dir = kwargs.pop('output_dir', None)
         # Remove 'label_names' from kwargs before calling super().__init__()
         self.label_names = kwargs.pop('label_names', ['labels'])
         super().__init__(*args, **kwargs)
-        self.training_dynamics = defaultdict(list)
-        self.output_dir = output_dir or self.args.output_dir
+        self.training_dynamics = defaultdict(list) if self.save_dynamics else None
+        if self.output_dir is None:
+            self.output_dir = self.args.output_dir  # Use the output_dir from TrainingArguments if not provided
 
     def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
-        # Extract 'idx' from inputs and remove it before passing to model
-        idxs = inputs['idx']
-        inputs = {k: v for k, v in inputs.items() if k != 'idx'}
+        """
+        if self.save_dynamics:
+            # Extract 'idx' from inputs and remove it before passing to model
+            idxs = inputs['idx']
+            inputs = {k: v for k, v in inputs.items() if k != 'idx'}
+        else:
+            idxs = None
+        """
+        idxs = inputs.pop('idx', None)
         outputs = model(**inputs)
         loss = outputs.loss
 
-        # Check for labels in inputs
-        if 'labels' in inputs:
-            # NLI task
-            labels = inputs['labels']
-            logits = outputs.logits
+        if self.save_dynamics:
+            # Check for labels in inputs
+            if 'labels' in inputs:
+                # NLI task
+                labels = inputs['labels']
+                logits = outputs.logits
 
-            probs = torch.nn.functional.softmax(logits, dim=-1)
+                probs = torch.nn.functional.softmax(logits, dim=-1)
 
-            labels_np = labels.detach().cpu().numpy()
-            idxs_np = idxs.detach().cpu().numpy()
-            probs_np = probs.detach().cpu().numpy()
+                labels_np = labels.detach().cpu().numpy()
+                idxs_np = idxs.detach().cpu().numpy()
+                probs_np = probs.detach().cpu().numpy()
 
-            # Log training dynamics
-            for idx, label, prob in zip(idxs_np, labels_np, probs_np):
-                self.training_dynamics[idx].append({
-                    'epoch': int(self.state.epoch),
-                    'label': int(label),
-                    'prob': prob.tolist()
-                })
-        elif 'start_positions' in inputs and 'end_positions' in inputs:
-            # QA task
-            start_positions = inputs['start_positions']
-            end_positions = inputs['end_positions']
-            start_logits = outputs.start_logits
-            end_logits = outputs.end_logits
+                # Log training dynamics
+                for idx, label, prob in zip(idxs_np, labels_np, probs_np):
+                    self.training_dynamics[idx].append({
+                        'epoch': int(self.state.epoch),
+                        'label': int(label),
+                        'prob': prob.tolist()
+                    })
+            elif 'start_positions' in inputs and 'end_positions' in inputs:
+                # QA task
+                start_positions = inputs['start_positions']
+                end_positions = inputs['end_positions']
+                start_logits = outputs.start_logits
+                end_logits = outputs.end_logits
 
-            start_probs = torch.nn.functional.softmax(start_logits, dim=-1)
-            end_probs = torch.nn.functional.softmax(end_logits, dim=-1)
+                start_probs = torch.nn.functional.softmax(start_logits, dim=-1)
+                end_probs = torch.nn.functional.softmax(end_logits, dim=-1)
 
-            start_positions_np = start_positions.detach().cpu().numpy()
-            end_positions_np = end_positions.detach().cpu().numpy()
-            idxs_np = idxs.detach().cpu().numpy()
-            start_probs_np = start_probs.detach().cpu().numpy()
-            end_probs_np = end_probs.detach().cpu().numpy()
+                start_positions_np = start_positions.detach().cpu().numpy()
+                end_positions_np = end_positions.detach().cpu().numpy()
+                idxs_np = idxs.detach().cpu().numpy()
+                start_probs_np = start_probs.detach().cpu().numpy()
+                end_probs_np = end_probs.detach().cpu().numpy()
 
-            # Log training dynamics
-            for idx, start_pos, end_pos, start_prob, end_prob in zip(
-                idxs_np, start_positions_np, end_positions_np, start_probs_np, end_probs_np
-            ):
-                self.training_dynamics[idx].append({
-                    'epoch': int(self.state.epoch),
-                    'start_position': int(start_pos),
-                    'end_position': int(end_pos),
-                    'start_prob': start_prob.tolist(),
-                    'end_prob': end_prob.tolist()
-                })
-        else:
-            raise ValueError("Could not find labels in inputs.")
+                # Log training dynamics
+                for idx, start_pos, end_pos, start_prob, end_prob in zip(
+                    idxs_np, start_positions_np, end_positions_np, start_probs_np, end_probs_np
+                ):
+                    self.training_dynamics[idx].append({
+                        'epoch': int(self.state.epoch),
+                        'start_position': int(start_pos),
+                        'end_position': int(end_pos),
+                        'start_prob': start_prob.tolist(),
+                        'end_prob': end_prob.tolist()
+                    })
+            else:
+                raise ValueError("Could not find labels in inputs.")
 
         if return_outputs:
             return (loss, outputs)
@@ -322,6 +333,8 @@ class DynamicsLogger:
             return loss
 
     def _save_training_dynamics(self):
+        if not self.save_dynamics:
+            return
         # Save the training dynamics to disk
         output_file = os.path.join(self.output_dir, 'training_dynamics.jsonl')
         with open(output_file, 'w') as f:
@@ -339,14 +352,14 @@ class DynamicsLogger:
 
 # Custom Trainer for NLI tasks
 class CustomTrainer(DynamicsLogger, Trainer):
-    pass
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
 # Custom Trainer for QA tasks
 class CustomQuestionAnsweringTrainer(DynamicsLogger, Trainer):
     def __init__(self, *args, eval_examples=None, **kwargs):
-        # Remove 'label_names' from kwargs before calling super().__init__()
-        self.label_names = kwargs.pop('label_names', ['start_positions', 'end_positions'])
+        self.label_names = kwargs.pop('label_names', ['start_positions', 'end_positions', 'idx'])
         super().__init__(*args, **kwargs)
         self.eval_examples = eval_examples
 
@@ -357,7 +370,6 @@ class CustomQuestionAnsweringTrainer(DynamicsLogger, Trainer):
                  metric_key_prefix: str = "eval"
                  ):
         eval_dataset = self.eval_dataset if eval_dataset is None else eval_dataset
-        eval_dataloader = self.get_eval_dataloader(eval_dataset)
         eval_examples = self.eval_examples if eval_examples is None else eval_examples
 
         # Temporarily disable metric computation, we will do it in the loop here.
@@ -366,7 +378,7 @@ class CustomQuestionAnsweringTrainer(DynamicsLogger, Trainer):
         try:
             # compute the raw predictions (start_logits and end_logits)
             output = self.evaluation_loop(
-                eval_dataloader,
+                eval_dataloader=self.get_eval_dataloader(eval_dataset),
                 description="Evaluation",
                 prediction_loss_only=True if compute_metrics is None else None,
                 ignore_keys=ignore_keys,

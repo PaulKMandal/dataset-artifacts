@@ -48,9 +48,13 @@ def main():
     argp.add_argument('--max_eval_samples', type=int, default=None,
                       help='Limit the number of examples to evaluate on.')
 
-    # Add the new flag
+    # Add the existing flag
     argp.add_argument('--save_only_final_model', action='store_true',
                       help='When set, only the final model will be saved, not intermediate checkpoints.')
+
+    # Add the new flag
+    argp.add_argument('--save_dynamics', action='store_true',
+                      help='When set, the training dynamics will be saved to training_dynamics.jsonl in the output directory.')
 
     training_args, args = argp.parse_args_into_dataclasses()
 
@@ -166,15 +170,21 @@ def main():
         label_names = ['labels', 'idx']
 
     # Initialize the Trainer object with the specified arguments and the model and dataset we loaded above
-    trainer = trainer_class(
+    trainer_kwargs = dict(
         model=model,
         args=training_args,
-        train_dataset=train_dataset_featurized,
-        eval_dataset=eval_dataset_featurized,
+        train_dataset=train_dataset_featurized if training_args.do_train else None,
+        eval_dataset=eval_dataset_featurized if training_args.do_eval else None,
         tokenizer=tokenizer,
-        compute_metrics=compute_metrics_and_store_predictions,
+        compute_metrics=compute_metrics_and_store_predictions if training_args.do_eval else None,
         output_dir=training_args.output_dir
     )
+
+    # Pass save_dynamics to the trainer if the flag is set
+    if args.save_dynamics:
+        trainer_kwargs['save_dynamics'] = True
+
+    trainer = trainer_class(**trainer_kwargs)
     # Set label_names after initialization
     trainer.label_names = label_names
 
@@ -204,7 +214,7 @@ def main():
                 predictions_by_id = {pred['id']: pred['prediction_text'] for pred in eval_predictions.predictions}
                 for example in eval_dataset:
                     example_with_prediction = dict(example)
-                    example_with_prediction['predicted_answer'] = predictions_by_id[example['id']]
+                    example_with_prediction['predicted_answer'] = predictions_by_id.get(example['id'], '')
                     f.write(json.dumps(example_with_prediction))
                     f.write('\n')
             else:
