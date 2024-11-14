@@ -8,6 +8,7 @@ import torch
 import os
 import json
 
+
 QA_MAX_ANSWER_LENGTH = 30
 
 
@@ -21,6 +22,23 @@ def prepare_dataset_nli(examples, tokenizer, max_seq_length=None):
         truncation=True,
         max_length=max_seq_length,
         padding='max_length'
+    )
+
+    tokenized_examples['label'] = examples['label']
+    tokenized_examples['idx'] = examples['idx']  # Include index in tokenized examples
+    return tokenized_examples
+
+
+# This function preprocesses an NLI dataset for the biased hypothesis-only model.
+def prepare_dataset_nli_hypothesis_only(examples, tokenizer, max_seq_length=None):
+    max_seq_length = tokenizer.model_max_length if max_seq_length is None else max_seq_length
+
+    # Only tokenize the hypothesis, ignoring the premise
+    tokenized_examples = tokenizer(
+        examples['hypothesis'],
+        padding='max_length',
+        truncation=True,
+        max_length=max_seq_length
     )
 
     tokenized_examples['label'] = examples['label']
@@ -166,7 +184,7 @@ def postprocess_qa_predictions(examples,
                                n_best_size: int = 20):
     if len(predictions) != 2:
         raise ValueError(
-            "`predictions` should be a tuple with two elements (start_logits, end_logits).")
+            "predictions should be a tuple with two elements (start_logits, end_logits).")
     all_start_logits, all_end_logits = predictions
 
     if len(predictions[0]) != len(features):
@@ -199,7 +217,7 @@ def postprocess_qa_predictions(examples,
             # to span of texts in the original context.
             offset_mapping = features[feature_index]["offset_mapping"]
 
-            # Go through all possibilities for the `n_best_size` greater start and end logits.
+            # Go through all possibilities for the n_best_size greater start and end logits.
             start_indexes = np.argsort(start_logits)[
                             -1: -n_best_size - 1: -1].tolist()
             end_indexes = np.argsort(end_logits)[
@@ -230,7 +248,7 @@ def postprocess_qa_predictions(examples,
                         }
                     )
 
-        # Only keep the best `n_best_size` predictions.
+        # Only keep the best n_best_size predictions.
         predictions = sorted(prelim_predictions, key=lambda x: x["score"],
                              reverse=True)[:n_best_size]
 
@@ -257,7 +275,7 @@ class DynamicsLogger:
         self.save_dynamics = kwargs.pop('save_dynamics', False)
         # Remove 'output_dir' from kwargs to prevent TypeError in Trainer.__init__
         self.output_dir = kwargs.pop('output_dir', None)
-        # Remove 'label_names' from kwargs before calling super().__init__()
+        # Remove 'label_names' from kwargs before calling super().__init__
         self.label_names = kwargs.pop('label_names', ['labels'])
         super().__init__(*args, **kwargs)
         self.training_dynamics = defaultdict(list) if self.save_dynamics else None
@@ -265,14 +283,6 @@ class DynamicsLogger:
             self.output_dir = self.args.output_dir  # Use the output_dir from TrainingArguments if not provided
 
     def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
-        """
-        if self.save_dynamics:
-            # Extract 'idx' from inputs and remove it before passing to model
-            idxs = inputs['idx']
-            inputs = {k: v for k, v in inputs.items() if k != 'idx'}
-        else:
-            idxs = None
-        """
         idxs = inputs.pop('idx', None)
         outputs = model(**inputs)
         loss = outputs.loss
@@ -414,3 +424,55 @@ class CustomQuestionAnsweringTrainer(DynamicsLogger, Trainer):
         self.control = self.callback_handler.on_evaluate(self.args, self.state,
                                                          self.control, metrics)
         return metrics
+
+
+# Custom Trainer for Residual Fitting
+class ResidualTrainer(DynamicsLogger, Trainer):
+    def __init__(self, *args, biased_model=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if biased_model is None:
+            raise ValueError("Biased model must be provided for residual fitting.")
+        self.biased_model = biased_model
+        self.biased_model.eval()
+        for param in self.biased_model.parameters():
+            param.requires_grad = False
+
+    def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
+        # Extract labels and idx
+        labels = inputs.get('labels', None)
+        idxs = inputs.pop('idx', None)
+
+        # Forward pass for the main model
+        outputs = model(**inputs)
+        loss = outputs.loss
+
+        if self.save_dynamics:
+            if labels is not None:
+                logits = outputs.logits
+                probs = torch.nn.functional.softmax(logits, dim=-1)
+
+                labels_np = labels.detach().cpu().numpy()
+                idxs_np = idxs.detach().cpu().numpy()
+                probs_np = probs.detach().cpu().numpy()
+
+                # Get biased model predictions
+                with torch.no_grad():
+                    biased_outputs = self.biased_model(**inputs)
+                    biased_logits = biased_outputs.logits
+                    biased_probs = torch.nn.functional.softmax(biased_logits, dim=-1).cpu().numpy()
+
+                # Compute residuals
+                residual_probs = probs_np - biased_probs
+
+                # Log training dynamics
+                for idx, label, residual_prob in zip(idxs_np, labels_np, residual_probs):
+                    self.training_dynamics[idx].append({
+                        'epoch': int(self.state.epoch),
+                        'label': int(label),
+                        'residual_prob': residual_prob.tolist()
+                    })
+
+        if return_outputs:
+            return (loss, outputs)
+        else:
+            return loss

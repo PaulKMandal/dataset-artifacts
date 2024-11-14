@@ -2,33 +2,18 @@ import datasets
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, \
     AutoModelForQuestionAnswering, TrainingArguments, HfArgumentParser
 import evaluate
-from helpers import prepare_dataset_nli, prepare_train_dataset_qa, \
-    prepare_validation_dataset_qa, CustomTrainer, CustomQuestionAnsweringTrainer, compute_accuracy
+from helpers import prepare_dataset_nli, prepare_dataset_nli_hypothesis_only, prepare_train_dataset_qa, \
+    prepare_validation_dataset_qa, CustomTrainer, CustomQuestionAnsweringTrainer, ResidualTrainer, compute_accuracy
 import os
 import json
+from functools import partial
 
 NUM_PREPROCESSING_WORKERS = 2
 
 
 def main():
     argp = HfArgumentParser(TrainingArguments)
-    # The HfArgumentParser object collects command-line arguments into an object (and provides default values for unspecified arguments).
-    # In particular, TrainingArguments has several keys that you'll need/want to specify (when you call run.py from the command line):
-    # --do_train
-    #     When included, this argument tells the script to train a model.
-    #     See docstrings for "--task" and "--dataset" for how the training dataset is selected.
-    # --do_eval
-    #     When included, this argument tells the script to evaluate the trained/loaded model on the validation split of the selected dataset.
-    # --per_device_train_batch_size <int, default=8>
-    #     This is the training batch size.
-    #     If you're running on GPU, you should try to make this as large as you can without getting CUDA out-of-memory errors.
-    #     For reference, with --max_length=128 and the default ELECTRA-small model, a batch size of 32 should fit in 4gb of GPU memory.
-    # --num_train_epochs <float, default=3.0>
-    #     How many passes to do through the training data.
-    # --output_dir <path>
-    #     Where to put the trained model checkpoint(s) and any eval predictions.
-    #     *This argument is required*.
-
+    # Existing arguments
     argp.add_argument('--model', type=str,
                       default='google/electra-small-discriminator',
                       help="""This argument specifies the base model to fine-tune.
@@ -48,13 +33,22 @@ def main():
     argp.add_argument('--max_eval_samples', type=int, default=None,
                       help='Limit the number of examples to evaluate on.')
 
-    # Add the existing flag
+    # Existing flags
     argp.add_argument('--save_only_final_model', action='store_true',
                       help='When set, only the final model will be saved, not intermediate checkpoints.')
-
-    # Add the new flag
     argp.add_argument('--save_dynamics', action='store_true',
                       help='When set, the training dynamics will be saved to training_dynamics.jsonl in the output directory.')
+
+    # New flags for residual fitting
+    argp.add_argument('--unlearn_residual', action='store_true',
+                      help='When set, trains the main model with residual fitting to unlearn dataset bias.')
+    argp.add_argument('--train_biased_model', action='store_true',
+                      help='When set, trains a biased hypothesis-only model before training the main model.')
+    argp.add_argument('--biased_model', type=str, default='google/electra-small-discriminator',
+                      help="""This argument specifies the base model to fine-tune as the biased model.
+        This should either be a HuggingFace model ID or a path to a saved model checkpoint.""")
+    argp.add_argument('--biased_model_task', type=str, choices=['nli'], default='nli',
+                      help='Task for the biased model. Currently only "nli" is supported.')
 
     training_args, args = argp.parse_args_into_dataclasses()
 
@@ -70,15 +64,11 @@ def main():
         dataset_id = None
         # Load from local json/jsonl file
         dataset = datasets.load_dataset('json', data_files=args.dataset)
-        # By default, the "json" dataset loader places all examples in the train split,
-        # so if we want to use a jsonl file for evaluation we need to get the "train" split
-        # from the loaded dataset
         eval_split = 'train'
     else:
         default_datasets = {'qa': ('squad',), 'nli': ('snli',)}
         dataset_id = tuple(args.dataset.split(':')) if args.dataset is not None else \
             default_datasets[args.task]
-        # MNLI has two validation splits (one with matched domains and one with mismatched domains). Most datasets just have one "validation" split
         eval_split = 'validation_matched' if dataset_id == ('glue', 'mnli') else 'validation'
         # Load the raw data
         dataset = datasets.load_dataset(*dataset_id)
@@ -86,17 +76,7 @@ def main():
     # NLI models need to have the output label count specified (label 0 is "entailed", 1 is "neutral", and 2 is "contradiction")
     task_kwargs = {'num_labels': 3} if args.task == 'nli' else {}
 
-    # Here we select the right model fine-tuning head
-    model_classes = {'qa': AutoModelForQuestionAnswering,
-                     'nli': AutoModelForSequenceClassification}
-    model_class = model_classes[args.task]
-    # Initialize the model and tokenizer from the specified pretrained model/checkpoint
-    model = model_class.from_pretrained(args.model, **task_kwargs)
-    # Make tensor contiguous if needed https://github.com/huggingface/transformers/issues/28293
-    if hasattr(model, 'electra'):
-        for param in model.electra.parameters():
-            if not param.is_contiguous():
-                param.data = param.data.contiguous()
+    # Initialize tokenizer
     tokenizer = AutoTokenizer.from_pretrained(args.model, use_fast=True)
 
     # Select the dataset preprocessing function (these functions are defined in helpers.py)
@@ -104,8 +84,9 @@ def main():
         prepare_train_dataset = lambda exs: prepare_train_dataset_qa(exs, tokenizer)
         prepare_eval_dataset = lambda exs: prepare_validation_dataset_qa(exs, tokenizer)
     elif args.task == 'nli':
-        prepare_train_dataset = prepare_eval_dataset = \
-            lambda exs: prepare_dataset_nli(exs, tokenizer, args.max_length)
+        # Use functools.partial to fix tokenizer and max_length
+        prepare_train_dataset = partial(prepare_dataset_nli, tokenizer=tokenizer, max_seq_length=args.max_length)
+        prepare_eval_dataset = partial(prepare_dataset_nli, tokenizer=tokenizer, max_seq_length=args.max_length)
     else:
         raise ValueError('Unrecognized task name: {}'.format(args.task))
 
@@ -114,22 +95,53 @@ def main():
         # remove SNLI examples with no label
         dataset = dataset.filter(lambda ex: ex['label'] != -1)
 
+    # Initialize variables for main model
     train_dataset = None
     eval_dataset = None
     train_dataset_featurized = None
     eval_dataset_featurized = None
-    if training_args.do_train:
-        train_dataset = dataset['train']
-        if args.max_train_samples:
-            train_dataset = train_dataset.select(range(args.max_train_samples))
-        # Add index to each example
-        train_dataset = train_dataset.map(lambda ex, idx: {'idx': idx}, with_indices=True)
-        train_dataset_featurized = train_dataset.map(
-            prepare_train_dataset,
-            batched=True,
-            num_proc=NUM_PREPROCESSING_WORKERS,
-            remove_columns=train_dataset.column_names
-        )
+
+    # Initialize variables for biased model
+    biased_model = None
+    biased_tokenizer = None
+    biased_train_dataset_featurized = None
+
+    if args.train_biased_model:
+        # Load biased model and tokenizer
+        biased_model = AutoModelForSequenceClassification.from_pretrained(args.biased_model, **task_kwargs)
+        biased_tokenizer = AutoTokenizer.from_pretrained(args.biased_model, use_fast=True)
+
+        # Prepare biased training dataset (hypothesis only)
+        if args.task == 'nli':
+            prepare_biased_dataset_nli = partial(prepare_dataset_nli_hypothesis_only, tokenizer=biased_tokenizer, max_seq_length=args.max_length)
+            biased_train_dataset = dataset['train']
+            if args.max_train_samples:
+                biased_train_dataset = biased_train_dataset.select(range(args.max_train_samples))
+            biased_train_dataset = biased_train_dataset.map(lambda ex, idx: {'idx': idx}, with_indices=True)
+            biased_train_dataset_featurized = biased_train_dataset.map(
+                prepare_biased_dataset_nli,
+                batched=True,
+                num_proc=NUM_PREPROCESSING_WORKERS,
+                remove_columns=biased_train_dataset.column_names
+            )
+        else:
+            raise ValueError('Biased model training is only supported for NLI tasks.')
+
+    if not args.train_biased_model:
+        # Prepare main training dataset
+        if training_args.do_train:
+            train_dataset = dataset['train']
+            if args.max_train_samples:
+                train_dataset = train_dataset.select(range(args.max_train_samples))
+            # Add index to each example
+            train_dataset = train_dataset.map(lambda ex, idx: {'idx': idx}, with_indices=True)
+            train_dataset_featurized = train_dataset.map(
+                prepare_train_dataset,
+                batched=True,
+                num_proc=NUM_PREPROCESSING_WORKERS,
+                remove_columns=train_dataset.column_names
+            )
+
     if training_args.do_eval:
         eval_dataset = dataset[eval_split]
         if args.max_eval_samples:
@@ -144,15 +156,19 @@ def main():
     # Select the training configuration
     compute_metrics = None
     if args.task == 'qa':
-        # For QA, we need to use a tweaked version of the Trainer (defined in helpers.py)
-        # to enable the question-answering specific evaluation metrics
         trainer_class = CustomQuestionAnsweringTrainer
         metric = evaluate.load('squad')
         compute_metrics = lambda eval_preds: metric.compute(
             predictions=eval_preds.predictions, references=eval_preds.label_ids)
     elif args.task == 'nli':
-        trainer_class = CustomTrainer
-        compute_metrics = compute_accuracy
+        if args.unlearn_residual:
+            trainer_class = ResidualTrainer  # Custom trainer for residual fitting
+            compute_metrics = compute_accuracy
+        else:
+            trainer_class = CustomTrainer
+            compute_metrics = compute_accuracy
+    else:
+        raise ValueError('Unsupported task.')
 
     # This function wraps the compute_metrics function, storing the model's predictions
     # so that they can be dumped along with the computed metrics
@@ -169,61 +185,132 @@ def main():
     else:
         label_names = ['labels', 'idx']
 
-    # Initialize the Trainer object with the specified arguments and the model and dataset we loaded above
-    trainer_kwargs = dict(
-        model=model,
-        args=training_args,
-        train_dataset=train_dataset_featurized if training_args.do_train else None,
-        eval_dataset=eval_dataset_featurized if training_args.do_eval else None,
-        tokenizer=tokenizer,
-        compute_metrics=compute_metrics_and_store_predictions if training_args.do_eval else None,
-        output_dir=training_args.output_dir
-    )
+    # Initialize the main model and tokenizer
+    model = AutoModelForSequenceClassification.from_pretrained(args.model, **task_kwargs)
 
-    # Pass save_dynamics to the trainer if the flag is set
-    if args.save_dynamics:
-        trainer_kwargs['save_dynamics'] = True
+    # Make tensor contiguous if needed https://github.com/huggingface/transformers/issues/28293
+    if hasattr(model, 'electra'):
+        for param in model.electra.parameters():
+            if not param.is_contiguous():
+                param.data = param.data.contiguous()
 
-    trainer = trainer_class(**trainer_kwargs)
-    # Set label_names after initialization
-    trainer.label_names = label_names
+    tokenizer = AutoTokenizer.from_pretrained(args.model, use_fast=True)
 
-    # For QA, pass eval_examples to the trainer
-    if args.task == 'qa':
-        trainer.eval_examples = eval_dataset
+    # If training a biased model
+    if args.train_biased_model:
+        trainer_kwargs = dict(
+            model=biased_model,
+            args=training_args,
+            train_dataset=biased_train_dataset_featurized if training_args.do_train else None,
+            eval_dataset=eval_dataset_featurized if training_args.do_eval else None,
+            tokenizer=biased_tokenizer,
+            compute_metrics=compute_metrics_and_store_predictions if training_args.do_eval else None,
+            output_dir=os.path.join(training_args.output_dir, 'biased_model')
+        )
 
-    # Train and/or evaluate
-    if training_args.do_train:
-        trainer.train()
-        # Save the final model
-        trainer.save_model()
+        trainer = trainer_class(**trainer_kwargs)
+        trainer.label_names = label_names
 
-    if training_args.do_eval:
-        results = trainer.evaluate()
+        if args.task == 'qa':
+            trainer.eval_examples = eval_dataset
 
-        print('Evaluation results:')
-        print(results)
+        # Train and/or evaluate the biased model
+        if training_args.do_train:
+            trainer.train()
+            trainer.save_model()
 
-        os.makedirs(training_args.output_dir, exist_ok=True)
+        if training_args.do_eval:
+            results = trainer.evaluate()
 
-        with open(os.path.join(training_args.output_dir, 'eval_metrics.json'), encoding='utf-8', mode='w') as f:
-            json.dump(results, f)
+            print('Biased Model Evaluation results:')
+            print(results)
 
-        with open(os.path.join(training_args.output_dir, 'eval_predictions.jsonl'), encoding='utf-8', mode='w') as f:
-            if args.task == 'qa':
-                predictions_by_id = {pred['id']: pred['prediction_text'] for pred in eval_predictions.predictions}
-                for example in eval_dataset:
-                    example_with_prediction = dict(example)
-                    example_with_prediction['predicted_answer'] = predictions_by_id.get(example['id'], '')
-                    f.write(json.dumps(example_with_prediction))
-                    f.write('\n')
-            else:
-                for i, example in enumerate(eval_dataset):
-                    example_with_prediction = dict(example)
-                    example_with_prediction['predicted_scores'] = eval_predictions.predictions[i].tolist()
-                    example_with_prediction['predicted_label'] = int(eval_predictions.predictions[i].argmax())
-                    f.write(json.dumps(example_with_prediction))
-                    f.write('\n')
+            os.makedirs(trainer.args.output_dir, exist_ok=True)
+
+            with open(os.path.join(trainer.args.output_dir, 'eval_metrics.json'), encoding='utf-8', mode='w') as f:
+                json.dump(results, f)
+
+            with open(os.path.join(trainer.args.output_dir, 'eval_predictions.jsonl'), encoding='utf-8', mode='w') as f:
+                if args.task == 'qa':
+                    predictions_by_id = {pred['id']: pred['prediction_text'] for pred in eval_predictions.predictions}
+                    for example in eval_dataset:
+                        example_with_prediction = dict(example)
+                        example_with_prediction['predicted_answer'] = predictions_by_id.get(example['id'], '')
+                        f.write(json.dumps(example_with_prediction))
+                        f.write('\n')
+                else:
+                    for i, example in enumerate(eval_dataset):
+                        example_with_prediction = dict(example)
+                        example_with_prediction['predicted_scores'] = eval_predictions.predictions[i].tolist()
+                        example_with_prediction['predicted_label'] = int(eval_predictions.predictions[i].argmax())
+                        f.write(json.dumps(example_with_prediction))
+                        f.write('\n')
+
+    # Prepare for residual fitting training or normal main model training
+    if not args.train_biased_model:
+        # Determine if residual fitting is enabled
+        if args.unlearn_residual:
+            # Load the biased model
+            if not args.biased_model:
+                raise ValueError("Biased model path must be provided when using residual unlearning.")
+            biased_model = AutoModelForSequenceClassification.from_pretrained(args.biased_model, **task_kwargs)
+            biased_model.eval()
+            for param in biased_model.parameters():
+                param.requires_grad = False
+
+        # Initialize the Trainer object with the specified arguments and the model and dataset we loaded above
+        trainer_kwargs = dict(
+            model=model,
+            args=training_args,
+            train_dataset=train_dataset_featurized if training_args.do_train else None,
+            eval_dataset=eval_dataset_featurized if training_args.do_eval else None,
+            tokenizer=tokenizer,
+            compute_metrics=compute_metrics_and_store_predictions if training_args.do_eval else None,
+            output_dir=training_args.output_dir
+        )
+
+        # Pass additional arguments based on whether residual fitting is enabled
+        if args.unlearn_residual:
+            trainer_kwargs['biased_model'] = biased_model  # Pass the biased model to the ResidualTrainer
+
+        trainer = trainer_class(**trainer_kwargs)
+        trainer.label_names = label_names
+
+        # For QA, pass eval_examples to the trainer
+        if args.task == 'qa':
+            trainer.eval_examples = eval_dataset
+
+        # Train and/or evaluate the main model
+        if training_args.do_train:
+            trainer.train()
+            trainer.save_model()
+
+        if training_args.do_eval:
+            results = trainer.evaluate()
+
+            print('Main Model Evaluation results:')
+            print(results)
+
+            os.makedirs(training_args.output_dir, exist_ok=True)
+
+            with open(os.path.join(training_args.output_dir, 'eval_metrics.json'), encoding='utf-8', mode='w') as f:
+                json.dump(results, f)
+
+            with open(os.path.join(training_args.output_dir, 'eval_predictions.jsonl'), encoding='utf-8', mode='w') as f:
+                if args.task == 'qa':
+                    predictions_by_id = {pred['id']: pred['prediction_text'] for pred in eval_predictions.predictions}
+                    for example in eval_dataset:
+                        example_with_prediction = dict(example)
+                        example_with_prediction['predicted_answer'] = predictions_by_id.get(example['id'], '')
+                        f.write(json.dumps(example_with_prediction))
+                        f.write('\n')
+                else:
+                    for i, example in enumerate(eval_dataset):
+                        example_with_prediction = dict(example)
+                        example_with_prediction['predicted_scores'] = eval_predictions.predictions[i].tolist()
+                        example_with_prediction['predicted_label'] = int(eval_predictions.predictions[i].argmax())
+                        f.write(json.dumps(example_with_prediction))
+                        f.write('\n')
 
 
 if __name__ == "__main__":
