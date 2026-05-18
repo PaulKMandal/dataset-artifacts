@@ -1,0 +1,52 @@
+run_id: FILL_ME
+created_at_utc: FILL_ME
+git_commit: FILL_ME
+command: FILL_ME
+host: FILL_ME
+gpu: FILL_ME
+wall_clock_minutes: FILL_ME
+
+model:
+  name_or_path: FILL_ME
+  tokenizer_name_or_path: FILL_ME
+
+seed: FILL_ME
+train_subset: FILL_ME
+subset_fraction: FILL_ME
+subset_draw_id: FILL_ME
+train_budget_type: FILL_ME
+num_train_epochs: FILL_ME
+num_optimizer_steps: FILL_ME
+
+hyperparameters:
+  learning_rate: FILL_ME
+  batch_size_train: FILL_ME
+  batch_size_eval: FILL_ME
+  max_seq_length: FILL_ME
+  doc_stride: FILL_ME
+  warmup_ratio: FILL_ME
+  weight_decay: FILL_ME
+
+datasets:
+  squad_train:
+    path: FILL_ME
+    hash: FILL_ME
+    num_examples: FILL_ME
+  squad_dev:
+    path: FILL_ME
+    hash: FILL_ME
+    num_examples: FILL_ME
+  addsent:
+    path: FILL_ME
+    hash: FILL_ME
+    num_examples: FILL_ME
+  addonesent:
+    path: FILL_ME
+    hash: FILL_ME
+    num_examples: FILL_ME
+
+outputs:
+  metrics_paths: []
+  prediction_paths: []
+  config_path: FILL_ME
+  log_path: FILL_ME
