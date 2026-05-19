@@ -35,19 +35,39 @@
           commonHook = ''
             export UV_PROJECT_ENVIRONMENT="''${UV_PROJECT_ENVIRONMENT:-.venv}"
             export UV_PYTHON="${pkgs.python311}/bin/python"
-            export UV_PYTHON_DOWNLOADS="never"
-            export HF_HOME="''${HF_HOME:-$PWD/.cache/huggingface}"
-            export HF_DATASETS_CACHE="''${HF_DATASETS_CACHE:-$HF_HOME/datasets}"
-            export TRANSFORMERS_CACHE="''${TRANSFORMERS_CACHE:-$HF_HOME/transformers}"
-            export TOKENIZERS_PARALLELISM="''${TOKENIZERS_PARALLELISM:-false}"
             export PYTHONNOUSERSITE=1
-            export LD_LIBRARY_PATH="${nativeLibraryPath}:''${LD_LIBRARY_PATH:-}"
-            if [ -d /run/opengl-driver/lib ]; then
-              export LD_LIBRARY_PATH="/run/opengl-driver/lib:''${LD_LIBRARY_PATH:-}"
-            fi
-            if [ -d /run/opengl-driver-32/lib ]; then
-              export LD_LIBRARY_PATH="/run/opengl-driver-32/lib:''${LD_LIBRARY_PATH:-}"
-            fi
+            export UV_NO_SYNC=1
+
+            # Host NVIDIA driver libraries on non-NixOS GPU servers.
+            # Do not add /usr/lib64 directly to LD_LIBRARY_PATH, because it contains
+            # system glibc and can break Nix-built tools.
+            export DATASET_ARTIFACTS_DRIVER_LIB_DIR="$PWD/.nix-driver-libs"
+            mkdir -p "$DATASET_ARTIFACTS_DRIVER_LIB_DIR"
+
+            for root in /run/opengl-driver/lib /usr/lib64 /usr/lib64/nvidia /run/nvidia/driver/usr/lib64; do
+                if [ -d "$root" ]; then
+                for lib in libcuda.so libcuda.so.1 libnvidia-ml.so.1; do
+                    if [ -e "$root/$lib" ]; then
+                    ln -sfn "$root/$lib" "$DATASET_ARTIFACTS_DRIVER_LIB_DIR/$lib"
+                    fi
+                done
+
+                for lib in "$root"/libcuda.so.* "$root"/libnvidia-ml.so.*; do
+                    if [ -e "$lib" ]; then
+                    ln -sfn "$lib" "$DATASET_ARTIFACTS_DRIVER_LIB_DIR/$(basename "$lib")"
+                    fi
+                done
+                fi
+            done
+
+            export LD_LIBRARY_PATH="$DATASET_ARTIFACTS_DRIVER_LIB_DIR:${nativeLibraryPath}:''${LD_LIBRARY_PATH:-}"
+
+            # PyTorch CUDA wheel libraries. These exist after uv sync.
+            for p in "$PWD"/.venv/lib/python3.11/site-packages/nvidia/*/lib; do
+                if [ -d "$p" ]; then
+                export LD_LIBRARY_PATH="$p:''${LD_LIBRARY_PATH:-}"
+                fi
+            done
           '';
         in
         {
