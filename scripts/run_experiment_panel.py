@@ -57,3 +57,7 @@ def parse_args() -> argparse.Namespace:
 
 def now_utc() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+def fraction_label(frac: float) -> str:
+    text = f"{frac:.6f}".rstrip("0").rstrip(".")
+    return text.replace(".", "p")
