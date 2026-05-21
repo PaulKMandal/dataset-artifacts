@@ -585,3 +585,21 @@ def add_random_fraction_specs(specs: dict[str, TrainSpec], cfg: dict[str, Any], 
                 train_data=subset_path(cfg, primary, "random", frac, draw_id),
                 max_steps=max_steps,
             )
+
+def add_named_fraction_specs(specs: dict[str, TrainSpec], cfg: dict[str, Any], exp_name: str, subset: str, budget: str, *, max_steps: int | None = None) -> None:
+    exp = cfg["experiments"].get(exp_name, {})
+    if not exp.get("enabled", True):
+        return
+    primary = cfg["cartography"]["primary"]
+    frac = float(exp["fraction"])
+    for seed in exp["seeds"]:
+        add_spec(
+            specs,
+            cfg,
+            subset=subset,
+            frac=frac,
+            seed=int(seed),
+            budget=budget,
+            train_data=subset_path(cfg, primary, subset, frac),
+            max_steps=max_steps,
+        )
