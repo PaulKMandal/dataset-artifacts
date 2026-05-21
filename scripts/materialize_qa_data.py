@@ -92,3 +92,12 @@ def flatten_squad_json(path: Path, *, with_idx: bool = False) -> Iterable[dict]:
 def dataset_records(dataset, split: str, *, with_idx: bool = False) -> Iterable[dict]:
     for idx, record in enumerate(dataset[split]):
         yield normalize_record(record, idx if with_idx else None)
+
+def write_jsonl(records: Iterable[dict], path: Path) -> int:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    count = 0
+    with path.open("w", encoding="utf-8") as f:
+        for record in records:
+            f.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n")
+            count += 1
+    return count
