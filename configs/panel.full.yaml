@@ -25,3 +25,17 @@ training:
 
 # The panel materializes these files from HF datasets unless local source JSONs
 # are supplied. The generated dataset_manifest.json records counts and hashes.
+
+data:
+  data_dir: data/qa
+  subsets_dir: data/subsets
+  squad_train: data/qa/squad_train.jsonl
+  evalsets:
+    squad_dev: data/qa/squad_dev.jsonl
+    addsent: data/qa/addsent.jsonl
+    addonesent: data/qa/addonesent.jsonl
+  # Optional frozen local SQuAD-v1 JSON sources. Leave null to download via HF datasets.
+  squad_train_json: null
+  squad_dev_json: null
+  addsent_json: null
+  addonesent_json: null
