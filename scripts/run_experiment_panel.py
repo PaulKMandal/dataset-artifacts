@@ -565,3 +565,23 @@ def add_full_baseline_specs(specs: dict[str, TrainSpec], cfg: dict[str, Any]) ->
             train_data=cfg["data"]["squad_train"],
             save_dynamics=int(seed) == source_seed,
         )
+
+def add_random_fraction_specs(specs: dict[str, TrainSpec], cfg: dict[str, Any], exp_name: str, budget: str, *, max_steps: int | None = None) -> None:
+    exp = cfg["experiments"].get(exp_name, {})
+    if not exp.get("enabled", True):
+        return
+    primary = cfg["cartography"]["primary"]
+    frac = float(exp["fraction"])
+    for draw_id in range(int(exp["random_draws"])):
+        for seed in exp["seeds"]:
+            add_spec(
+                specs,
+                cfg,
+                subset="random",
+                frac=frac,
+                draw_id=draw_id,
+                seed=int(seed),
+                budget=budget,
+                train_data=subset_path(cfg, primary, "random", frac, draw_id),
+                max_steps=max_steps,
+            )
