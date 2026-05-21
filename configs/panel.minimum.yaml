@@ -9,3 +9,14 @@ model:
   short_name: electra_small
   name_or_path: google/electra-small-discriminator
   max_seq_length: 384
+
+training:
+  num_train_epochs: 3
+  same_steps_fallback_max_steps: 8214
+  learning_rate: 5.0e-5
+  warmup_ratio: 0.0
+  weight_decay: 0.0
+  per_device_train_batch_size: 32
+  per_device_eval_batch_size: 64
+  fp16: true
+  fp16_eval: true
