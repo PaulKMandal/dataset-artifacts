@@ -79,3 +79,4 @@ experiments:
     enabled: true
     fraction: 0.333
     seeds: [42]
+  budget_10: {enabled: false}
