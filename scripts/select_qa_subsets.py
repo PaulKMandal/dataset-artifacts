@@ -155,3 +155,32 @@ def select_cartography_subsets(
             }
         )
     return manifest_rows, selected_by_name
+
+def select_random_subsets(
+    by_idx: dict[int, dict],
+    all_indices: list[int],
+    out_dir: Path,
+    args: Namespace,
+    *,
+    frac: float,
+    k: int,
+) -> list[dict]:
+    flabel = fraction_label(frac)
+    manifest_rows = []
+    for draw_id in range(args.random_draws):
+        rng = random.Random(args.random_seed_base + draw_id)
+        indices = sorted(rng.sample(all_indices, k))
+        path = out_dir / f"random_frac{flabel}_draw{draw_id:02d}.jsonl"
+        count = write_jsonl((by_idx[idx] for idx in indices), path)
+        manifest_rows.append(
+            {
+                "subset": "random",
+                "subset_fraction": frac,
+                "subset_size": count,
+                "subset_draw_id": draw_id,
+                "path": str(path),
+                "confidence_definition": args.confidence_definition,
+                "selection_rule": "uniform_without_replacement",
+            }
+        )
+    return manifest_rows
