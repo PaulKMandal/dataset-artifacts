@@ -58,3 +58,11 @@ def sentences(text: str) -> list[tuple[int, int, str]]:
     if tail:
         spans.append((start, len(text), tail))
     return spans
+
+def answer_sentence(context: str, answer_start: int | None) -> str:
+    if answer_start is None:
+        return ""
+    for start, end, sent in sentences(context):
+        if start <= answer_start <= end:
+            return sent
+    return ""
