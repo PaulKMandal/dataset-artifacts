@@ -46,3 +46,6 @@ def f1_score(prediction: str, ground_truth: str) -> float:
 def metric_max_over_ground_truths(prediction: str, ground_truths: Iterable[str], metric_fn) -> float:
     scores = [metric_fn(prediction, ground_truth) for ground_truth in ground_truths]
     return max(scores) if scores else 0.0
+
+def squad_exact_match(prediction: str, answers: dict) -> float:
+    return metric_max_over_ground_truths(prediction, answers.get("text", []), exact_match_score)
