@@ -59,3 +59,19 @@ def audit_table(by_evalset: dict[str, list[dict]]) -> list[str]:
             f"| {evalset} | {expected if expected is not None else ''} | {', '.join(counts)} | {', '.join(paths)} | {', '.join(hashes)} | {status} |"
         )
     return lines
+
+def label_check_lines(by_evalset: dict[str, list[dict]]) -> list[str]:
+    lines = [
+        "",
+        "## AddSent/AddOneSent label check",
+        "",
+        "A likely label swap is flagged if AddSent and AddOneSent example counts do not match the expected adversarial SQuAD counts or if either evalset is backed by more than one dataset hash.",
+        "",
+    ]
+    addsent_ok = by_evalset.get("addsent") and sorted({r.get("num_eval_examples") for r in by_evalset["addsent"]}) == [EXPECTED_COUNTS["addsent"]]
+    addonesent_ok = by_evalset.get("addonesent") and sorted({r.get("num_eval_examples") for r in by_evalset["addonesent"]}) == [EXPECTED_COUNTS["addonesent"]]
+    if addsent_ok and addonesent_ok:
+        lines.append("Conclusion: evalset labels are consistent with expected AddSent/AddOneSent example counts.")
+    else:
+        lines.append("Conclusion: CHECK REQUIRED before reporting AddSent/AddOneSent table labels.")
+    return lines
