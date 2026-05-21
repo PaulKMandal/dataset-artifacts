@@ -104,3 +104,15 @@ def select_indices(scores: dict[int, dict], subset: str, k: int) -> list[int]:
     else:
         raise ValueError(f"Unknown cartography subset: {subset}")
     return [int(r["idx"]) for r in rows[:k]]
+
+def subset_size(n_scores: int, frac: float, rounding: str) -> int:
+    if not (0 < frac <= 1):
+        raise SystemExit(f"Invalid fraction {frac}; expected 0 < fraction <= 1")
+    raw_k = n_scores * frac
+    if rounding == "floor":
+        k = int(math.floor(raw_k))
+    elif rounding == "ceil":
+        k = int(math.ceil(raw_k))
+    else:
+        k = int(round(raw_k))
+    return max(1, min(k, n_scores))
