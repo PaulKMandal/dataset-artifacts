@@ -28,3 +28,15 @@ def group_by_evalset(rows: list[dict]) -> dict[str, list[dict]]:
     for row in rows:
         by_evalset[row.get("evalset", "UNKNOWN")].append(row)
     return by_evalset
+
+def evalset_status(evalset: str, group: list[dict]) -> tuple[list[str], list[str], list[str], str]:
+    observed_counts = sorted({str(r.get("num_eval_examples")) for r in group})
+    paths = sorted({str(r.get("dataset_path")) for r in group})
+    hashes = sorted({str(r.get("dataset_hash")) for r in group})
+    expected = EXPECTED_COUNTS.get(evalset)
+    status = "OK"
+    if expected is not None and observed_counts != [str(expected)]:
+        status = "CHECK_COUNT"
+    if len(paths) != 1 or len(hashes) != 1:
+        status = "CHECK_MULTIPLE_DATASETS"
+    return observed_counts, paths, hashes, status
