@@ -140,3 +140,9 @@ def write_rows(rows: list[dict], out_path: Path) -> None:
         writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         writer.writeheader()
         writer.writerows(rows)
+
+def main() -> None:
+    args = parse_args()
+    out_path = Path(args.out)
+    write_rows(build_rows(args), out_path)
+    print(f"Wrote {out_path}")
