@@ -155,3 +155,47 @@ def make_run_id(
         parts.append(confidence_definition)
     parts.extend([f"seed{seed}", budget])
     return "__".join(parts)
+
+def base_train_args(cfg: dict[str, Any], spec: TrainSpec) -> list[str]:
+    training = cfg["training"]
+    model = cfg["model"]
+    args = [
+        sys.executable,
+        "run.py",
+        "--do_train",
+        "--task",
+        "qa",
+        "--dataset",
+        spec.train_data,
+        "--model",
+        spec.model_name,
+        "--output_dir",
+        spec.output_dir,
+        "--overwrite_output_dir",
+        "--max_length",
+        str(model["max_seq_length"]),
+        "--per_device_train_batch_size",
+        str(training["per_device_train_batch_size"]),
+        "--per_device_eval_batch_size",
+        str(training["per_device_eval_batch_size"]),
+        "--learning_rate",
+        str(training["learning_rate"]),
+        "--warmup_ratio",
+        str(training.get("warmup_ratio", 0.0)),
+        "--weight_decay",
+        str(training.get("weight_decay", 0.0)),
+        "--num_train_epochs",
+        str(spec.num_train_epochs),
+        "--save_only_final_model",
+        "--seed",
+        str(spec.seed),
+        "--report_to",
+        "none",
+    ]
+    if training.get("fp16", False):
+        args.append("--fp16")
+    if spec.max_steps is not None and spec.max_steps > 0:
+        args.extend(["--max_steps", str(spec.max_steps)])
+    if spec.save_dynamics:
+        args.append("--save_dynamics")
+    return args
