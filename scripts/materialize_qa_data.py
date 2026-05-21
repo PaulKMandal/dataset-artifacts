@@ -21,3 +21,18 @@ from pathlib import Path
 from typing import Iterable
 
 import datasets
+
+def parse_args() -> Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--out-dir", default="data/qa")
+    parser.add_argument("--squad-train-json", default=None)
+    parser.add_argument("--squad-dev-json", default=None)
+    parser.add_argument("--addsent-json", default=None)
+    parser.add_argument("--addonesent-json", default=None)
+    parser.add_argument(
+        "--trust-remote-code",
+        action="store_true",
+        default=True,
+        help="Pass trust_remote_code=True for stanfordnlp/squad_adversarial.",
+    )
+    return parser.parse_args()
