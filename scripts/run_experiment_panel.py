@@ -645,3 +645,22 @@ def add_budget_curve_specs(specs: dict[str, TrainSpec], cfg: dict[str, Any]) -> 
                         budget="same_epochs",
                         train_data=subset_path(cfg, primary, subset, frac),
                     )
+
+def add_confidence_ablation_specs(specs: dict[str, TrainSpec], cfg: dict[str, Any]) -> None:
+    exp = cfg["experiments"].get("confidence_ablation", {})
+    if not exp.get("enabled", True):
+        return
+    frac = float(exp["fraction"])
+    for confidence_definition in exp["definitions"]:
+        for subset in exp["subsets"]:
+            for seed in exp["seeds"]:
+                add_spec(
+                    specs,
+                    cfg,
+                    subset=subset,
+                    frac=frac,
+                    seed=int(seed),
+                    budget="same_epochs",
+                    train_data=subset_path(cfg, confidence_definition, subset, frac),
+                    confidence_definition=confidence_definition,
+                )
