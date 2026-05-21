@@ -66,3 +66,7 @@ experiments:
     enabled: true
     fraction: 0.333
     seeds: [13, 21, 42]
+  hard_33:
+    enabled: true
+    fraction: 0.333
+    seeds: [13, 21, 42]
