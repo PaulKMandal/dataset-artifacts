@@ -60,3 +60,6 @@ cartography:
 
 experiments:
   # Tier A
+  full_baseline:
+    enabled: true
+    seeds: [13, 21, 42, 87, 100]
