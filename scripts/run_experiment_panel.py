@@ -131,3 +131,8 @@ def write_environment_logs(results_dir: Path) -> None:
         encoding="utf-8",
     )
     (logs_dir / "environment.txt").write_text("\n".join(environment_lines()) + "\n", encoding="utf-8")
+
+def model_file_exists(out_dir: Path) -> bool:
+    has_config = (out_dir / "config.json").exists()
+    has_weights = (out_dir / "model.safetensors").exists() or (out_dir / "pytorch_model.bin").exists()
+    return has_config and has_weights
