@@ -339,3 +339,20 @@ def eval_model(
     run_cmd(eval_args(cfg, spec, eval_path, eval_out), log_path=log_path, dry_run=dry_run)
     if not dry_run:
         write_eval_metrics(cfg, spec, evalset, eval_path, eval_out, raw_metrics_path)
+
+def ensure_data(cfg: dict[str, Any], *, log_path: Path, dry_run: bool) -> None:
+    data_cfg = cfg["data"]
+    required = [Path(v) for v in data_cfg["evalsets"].values()] + [Path(data_cfg["squad_train"])]
+    if all(path.exists() for path in required):
+        print("[data] required JSONL files already exist")
+        return
+    args = [sys.executable, "scripts/materialize_qa_data.py", "--out-dir", str(data_cfg["data_dir"])]
+    for key, cli in [
+        ("squad_train_json", "--squad-train-json"),
+        ("squad_dev_json", "--squad-dev-json"),
+        ("addsent_json", "--addsent-json"),
+        ("addonesent_json", "--addonesent-json"),
+    ]:
+        if data_cfg.get(key):
+            args.extend([cli, str(data_cfg[key])])
+    run_cmd(args, log_path=log_path, dry_run=dry_run)
