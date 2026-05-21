@@ -1,1 +1,6 @@
 # Minimum publishable ELECTRA-small panel: Tier A plus one same-steps diagnostic.
+
+panel:
+  name: electra_small_cartography_minimum_panel
+  results_dir: results/panel_electra_small_minimum
+  resume: true
