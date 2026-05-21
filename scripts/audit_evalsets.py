@@ -84,3 +84,9 @@ def write_audit(results_dir: Path) -> Path:
     lines = audit_table(by_evalset) + label_check_lines(by_evalset)
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return out
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--results-dir", required=True)
+    args = parser.parse_args()
+    print(f"Wrote {write_audit(Path(args.results_dir))}")
