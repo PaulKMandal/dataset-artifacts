@@ -82,3 +82,9 @@ experiments:
   budget_10: {enabled: false}
   budget_20: {enabled: false}
   budget_50: {enabled: false}
+  confidence_ablation:
+    enabled: true
+    fraction: 0.333
+    definitions: [endpoint]
+    subsets: [easy, ambiguous, hard]
+    seeds: [42]
