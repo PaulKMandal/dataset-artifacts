@@ -42,3 +42,11 @@ def parse_args() -> Namespace:
 def fraction_label(frac: float) -> str:
     text = f"{frac:.6f}".rstrip("0").rstrip(".")
     return text.replace(".", "p")
+
+def read_jsonl(path: Path) -> list[dict]:
+    rows = []
+    with path.open("r", encoding="utf-8") as f:
+        for line in f:
+            if line.strip():
+                rows.append(json.loads(line))
+    return rows
