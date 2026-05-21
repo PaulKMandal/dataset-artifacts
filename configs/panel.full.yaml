@@ -109,3 +109,9 @@ experiments:
     subsets: [random, easy, ambiguous, hard]
     seeds: [42]
     random_draws: 5
+  confidence_ablation:
+    enabled: true
+    fraction: 0.333
+    definitions: [endpoint, neg_loss]
+    subsets: [easy, ambiguous, hard]
+    seeds: [42]
