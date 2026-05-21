@@ -59,3 +59,21 @@ def write_jsonl(rows: Iterable[dict], path: Path) -> int:
             f.write(json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n")
             count += 1
     return count
+
+def read_scores(path: Path) -> dict[int, dict]:
+    with path.open("r", encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        scores = {}
+        for row in reader:
+            idx = int(row["idx"])
+            scores[idx] = {
+                "idx": idx,
+                "confidence": float(row.get("confidence", row.get("avg_confidence", 0.0))),
+                "variability": float(row.get("variability", 0.0)),
+                "correctness": float(row.get("correctness", 0.0)),
+                "region": row.get("region", ""),
+                "n_records": int(float(row.get("n_records", 0) or 0)),
+            }
+    if not scores:
+        raise SystemExit(f"No cartography scores loaded from {path}")
+    return scores
