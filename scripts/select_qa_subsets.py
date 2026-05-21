@@ -38,3 +38,7 @@ def parse_args() -> Namespace:
     parser.add_argument("--confidence-definition", default="joint_confidence")
     parser.add_argument("--rounding", choices=["round", "floor", "ceil"], default="round")
     return parser.parse_args()
+
+def fraction_label(frac: float) -> str:
+    text = f"{frac:.6f}".rstrip("0").rstrip(".")
+    return text.replace(".", "p")
