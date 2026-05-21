@@ -82,3 +82,10 @@ def answer_info(row: dict) -> tuple[str, int | None]:
     text = texts[0] if texts else ""
     start = int(starts[0]) if starts else None
     return text, start
+
+def load_cartography_by_id(path: Path | None) -> dict[str, dict]:
+    if path is None or not path.exists():
+        return {}
+    with path.open("r", encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        return {row.get("example_id", row.get("id", "")): row for row in reader if row.get("example_id", row.get("id", ""))}
