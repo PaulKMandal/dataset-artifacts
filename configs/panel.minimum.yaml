@@ -81,3 +81,4 @@ experiments:
     seeds: [42]
   budget_10: {enabled: false}
   budget_20: {enabled: false}
+  budget_50: {enabled: false}
