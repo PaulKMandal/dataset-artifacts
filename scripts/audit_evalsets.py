@@ -40,3 +40,22 @@ def evalset_status(evalset: str, group: list[dict]) -> tuple[list[str], list[str
     if len(paths) != 1 or len(hashes) != 1:
         status = "CHECK_MULTIPLE_DATASETS"
     return observed_counts, paths, hashes, status
+
+def audit_table(by_evalset: dict[str, list[dict]]) -> list[str]:
+    lines = [
+        "# Table/evalset audit",
+        "",
+        "This audit is generated from normalized metrics JSON files. It checks evalset names, example counts, dataset paths, and dataset hashes before tables are reported.",
+        "",
+        "## Evalset identity checks",
+        "",
+        "| evalset | expected n | observed n values | dataset paths | dataset hashes | status |",
+        "|---|---:|---|---|---|---|",
+    ]
+    for evalset in sorted(by_evalset):
+        counts, paths, hashes, status = evalset_status(evalset, by_evalset[evalset])
+        expected = EXPECTED_COUNTS.get(evalset)
+        lines.append(
+            f"| {evalset} | {expected if expected is not None else ''} | {', '.join(counts)} | {', '.join(paths)} | {', '.join(hashes)} | {status} |"
+        )
+    return lines
