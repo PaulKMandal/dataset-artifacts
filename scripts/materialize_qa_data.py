@@ -122,3 +122,11 @@ def materialize_squad(args: Namespace, out_dir: Path) -> dict[str, dict]:
         "squad_train": materialize_one("squad_train", dataset_records(squad, "train", with_idx=True), out_dir),
         "squad_dev": materialize_one("squad_dev", dataset_records(squad, "validation", with_idx=False), out_dir),
     }
+
+def materialize_addsent(args: Namespace, out_dir: Path) -> dict:
+    if args.addsent_json:
+        return materialize_one("addsent", flatten_squad_json(Path(args.addsent_json), with_idx=False), out_dir)
+    addsent = datasets.load_dataset(
+        "stanfordnlp/squad_adversarial", "AddSent", trust_remote_code=args.trust_remote_code
+    )
+    return materialize_one("addsent", dataset_records(addsent, "validation", with_idx=False), out_dir)
