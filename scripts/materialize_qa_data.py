@@ -88,3 +88,7 @@ def flatten_squad_json(path: Path, *, with_idx: bool = False) -> Iterable[dict]:
                 }
                 yield normalize_record(record, idx if with_idx else None)
                 idx += 1
+
+def dataset_records(dataset, split: str, *, with_idx: bool = False) -> Iterable[dict]:
+    for idx, record in enumerate(dataset[split]):
+        yield normalize_record(record, idx if with_idx else None)
