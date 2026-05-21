@@ -775,3 +775,6 @@ def main() -> None:
     run_training_and_eval_specs(cfg, specs, log_path=log_path, dry_run=args.dry_run, resume=resume)
     aggregate(cfg, log_path=log_path, dry_run=args.dry_run)
     print(f"Panel complete. Results root: {results_dir}")
+
+if __name__ == "__main__":
+    main()
