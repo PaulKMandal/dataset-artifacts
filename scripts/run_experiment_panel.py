@@ -199,3 +199,12 @@ def base_train_args(cfg: dict[str, Any], spec: TrainSpec) -> list[str]:
     if spec.save_dynamics:
         args.append("--save_dynamics")
     return args
+
+def train_is_done(out_dir: Path, spec: TrainSpec) -> bool:
+    done = (out_dir / "train_metrics.json").exists() and model_file_exists(out_dir)
+    if spec.save_dynamics:
+        done = done and (
+            (out_dir / "training_dynamics.jsonl").exists()
+            or any(out_dir.glob("training_dynamics.rank*.jsonl"))
+        )
+    return done
