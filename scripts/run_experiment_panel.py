@@ -252,3 +252,12 @@ def eval_args(cfg: dict[str, Any], spec: TrainSpec, eval_path: str, eval_out: Pa
     if training.get("fp16_eval", training.get("fp16", False)):
         args.append("--fp16")
     return args
+
+def check_eval_outputs(eval_out: Path) -> tuple[Path, Path]:
+    metrics_path = eval_out / "eval_metrics.json"
+    predictions_path = eval_out / "eval_predictions.jsonl"
+    if not metrics_path.exists():
+        raise FileNotFoundError(metrics_path)
+    if not predictions_path.exists():
+        raise FileNotFoundError(predictions_path)
+    return metrics_path, predictions_path
