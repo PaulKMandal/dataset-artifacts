@@ -146,3 +146,6 @@ def main() -> None:
     out_path = Path(args.out)
     write_rows(build_rows(args), out_path)
     print(f"Wrote {out_path}")
+
+if __name__ == "__main__":
+    main()
