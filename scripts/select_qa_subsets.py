@@ -116,3 +116,12 @@ def subset_size(n_scores: int, frac: float, rounding: str) -> int:
     else:
         k = int(round(raw_k))
     return max(1, min(k, n_scores))
+
+def load_inputs(args: Namespace) -> tuple[list[dict], dict[int, dict], dict[int, dict]]:
+    train_data = read_jsonl(Path(args.train_data))
+    by_idx = {int(row.get("idx", i)): row for i, row in enumerate(train_data)}
+    scores = read_scores(Path(args.cartography_scores))
+    missing = sorted(set(scores) - set(by_idx))
+    if missing:
+        raise SystemExit(f"Cartography scores contain {len(missing)} idx values absent from train data")
+    return train_data, by_idx, scores
