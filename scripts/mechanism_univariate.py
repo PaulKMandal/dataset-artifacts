@@ -99,3 +99,6 @@ def main() -> None:
     out = Path(args.out)
     write_rows(build_rows(pd.read_csv(args.features)), out)
     print(f"Wrote {out}")
+
+if __name__ == "__main__":
+    main()
