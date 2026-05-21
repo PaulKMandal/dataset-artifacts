@@ -495,3 +495,12 @@ def parse_full_steps(source_spec: TrainSpec, fallback: int) -> int:
         if state.get("global_step"):
             return int(state["global_step"])
     return int(fallback)
+
+def subset_path(cfg: dict[str, Any], confidence_definition: str, subset: str, frac: float, draw_id: int | None = None) -> str:
+    base = Path(cfg["data"]["subsets_dir"]) / confidence_definition
+    flabel = fraction_label(frac)
+    if subset == "random":
+        if draw_id is None:
+            raise ValueError("random subset requires draw_id")
+        return str(base / f"random_frac{flabel}_draw{draw_id:02d}.jsonl")
+    return str(base / f"{subset}_frac{flabel}.jsonl")
