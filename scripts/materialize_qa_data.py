@@ -36,3 +36,10 @@ def parse_args() -> Namespace:
         help="Pass trust_remote_code=True for stanfordnlp/squad_adversarial.",
     )
     return parser.parse_args()
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return "sha256:" + digest.hexdigest()
