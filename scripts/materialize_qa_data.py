@@ -144,3 +144,14 @@ def write_manifest(manifest: dict[str, dict], out_dir: Path) -> Path:
     with manifest_path.open("w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2, sort_keys=True)
     return manifest_path
+
+def main() -> None:
+    args = parse_args()
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    manifest = materialize_squad(args, out_dir)
+    manifest["addsent"] = materialize_addsent(args, out_dir)
+    manifest["addonesent"] = materialize_addonesent(args, out_dir)
+    manifest_path = write_manifest(manifest, out_dir)
+    print(json.dumps(manifest, indent=2, sort_keys=True))
+    print(f"Wrote {manifest_path}")
