@@ -1,0 +1,3 @@
+# Full ELECTRA-small panel for clean-SQuAD cartography vs adversarial QA robustness.
+# Launch on the GPU server inside the Nix shell:
+#   scripts/run_full_panel.sh configs/panel.full.yaml
