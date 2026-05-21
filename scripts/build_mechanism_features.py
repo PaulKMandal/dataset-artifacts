@@ -37,3 +37,10 @@ def read_jsonl(path: Path) -> list[dict]:
 
 def word_set(text: str) -> set[str]:
     return set(normalize_answer(text).split())
+
+def overlap(a: str, b: str) -> float:
+    aw = word_set(a)
+    bw = word_set(b)
+    if not aw or not bw:
+        return 0.0
+    return len(aw & bw) / len(aw | bw)
