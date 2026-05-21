@@ -80,3 +80,7 @@ CUDA_VISIBLE_DEVICES=0 scripts/run_full_panel.sh configs/panel.full.yaml
 ```
 
 The panel writes normalized metrics to `results/panel_electra_small/metrics/raw/` and regenerates all CSV/JSON tables through `scripts/aggregate_metrics.py`. The full panel is resumable; delete a run directory and its corresponding `metrics/raw/*.json` file to force a rerun.
+
+## Evalset audit
+
+`results/panel_electra_small/logs/table_audit.md` is generated from metrics files and checks the observed SQuAD dev/AddSent/AddOneSent example counts and hashes. Treat a `CHECK_*` status as a reporting blocker until the dataset path and table label are resolved.
