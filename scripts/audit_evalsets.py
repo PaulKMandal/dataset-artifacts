@@ -22,3 +22,9 @@ def load_metrics(results_dir: Path) -> list[dict]:
         row["metrics_file"] = str(path)
         rows.append(row)
     return rows
+
+def group_by_evalset(rows: list[dict]) -> dict[str, list[dict]]:
+    by_evalset: dict[str, list[dict]] = defaultdict(list)
+    for row in rows:
+        by_evalset[row.get("evalset", "UNKNOWN")].append(row)
+    return by_evalset
