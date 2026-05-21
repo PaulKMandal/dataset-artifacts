@@ -664,3 +664,11 @@ def add_confidence_ablation_specs(specs: dict[str, TrainSpec], cfg: dict[str, An
                     train_data=subset_path(cfg, confidence_definition, subset, frac),
                     confidence_definition=confidence_definition,
                 )
+
+def build_specs(cfg: dict[str, Any], same_steps: int) -> list[TrainSpec]:
+    specs: dict[str, TrainSpec] = {}
+    add_tier_a_specs(specs, cfg)
+    add_same_steps_specs(specs, cfg, same_steps)
+    add_budget_curve_specs(specs, cfg)
+    add_confidence_ablation_specs(specs, cfg)
+    return list(specs.values())
