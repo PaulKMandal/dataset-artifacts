@@ -43,3 +43,29 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
             digest.update(chunk)
     return "sha256:" + digest.hexdigest()
+
+def normalize_record(record: dict, idx: int | None = None) -> dict:
+    answers = record.get("answers", {})
+    if isinstance(answers, list):
+        answers = {
+            "text": [a.get("text", "") for a in answers],
+            "answer_start": [int(a.get("answer_start", 0)) for a in answers],
+        }
+    else:
+        answers = {
+            "text": list(answers.get("text", [])),
+            "answer_start": [int(x) for x in answers.get("answer_start", [])],
+        }
+
+    out = {
+        "id": str(record.get("id", idx if idx is not None else "")),
+        "title": record.get("title", ""),
+        "context": record["context"],
+        "question": record["question"],
+        "answers": answers,
+    }
+    if idx is not None:
+        out["idx"] = int(idx)
+    elif "idx" in record and record["idx"] is not None:
+        out["idx"] = int(record["idx"])
+    return out
