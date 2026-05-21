@@ -155,3 +155,6 @@ def main() -> None:
     manifest_path = write_manifest(manifest, out_dir)
     print(json.dumps(manifest, indent=2, sort_keys=True))
     print(f"Wrote {manifest_path}")
+
+if __name__ == "__main__":
+    main()
