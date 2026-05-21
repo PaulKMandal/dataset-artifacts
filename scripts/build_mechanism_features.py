@@ -34,3 +34,6 @@ def read_jsonl(path: Path) -> list[dict]:
             if line.strip():
                 rows.append(json.loads(line))
     return rows
+
+def word_set(text: str) -> set[str]:
+    return set(normalize_answer(text).split())
