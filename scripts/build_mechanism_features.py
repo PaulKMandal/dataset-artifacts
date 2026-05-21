@@ -44,3 +44,17 @@ def overlap(a: str, b: str) -> float:
     if not aw or not bw:
         return 0.0
     return len(aw & bw) / len(aw | bw)
+
+def sentences(text: str) -> list[tuple[int, int, str]]:
+    spans = []
+    start = 0
+    for match in re.finditer(r"(?<=[.!?])\s+", text):
+        end = match.start()
+        sent = text[start:end].strip()
+        if sent:
+            spans.append((start, end, sent))
+        start = match.end()
+    tail = text[start:].strip()
+    if tail:
+        spans.append((start, len(text), tail))
+    return spans
