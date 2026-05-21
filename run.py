@@ -248,9 +248,12 @@ def main():
                     }
                     for example in eval_dataset:
                         example_with_prediction = dict(example)
-                        example_with_prediction["predicted_answer"] = predictions_by_id.get(
-                            example["id"], ""
+                        predicted_answer = predictions_by_id.get(example["id"], "")
+                        example_with_prediction["predicted_answer"] = predicted_answer
+                        example_with_prediction["exact_match"] = squad_exact_match(
+                            predicted_answer, example["answers"]
                         )
+                        example_with_prediction["f1"] = squad_f1(predicted_answer, example["answers"])
                         f.write(json.dumps(example_with_prediction) + "\n")
                 else:
                     for i, example in enumerate(eval_dataset):
