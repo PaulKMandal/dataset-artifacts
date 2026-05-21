@@ -68,3 +68,15 @@ Do not copy back full model weights by default unless `PULL_MODELS=1` is set.
 - `training_dynamics.jsonl` must contain scalar fields, not full `start_prob`/`end_prob` arrays.
 - One V100 smoke run should produce non-empty dynamics and eval metrics.
 - Cartography script should produce a non-empty `cartography_scores.csv`.
+
+## Full-panel reproduction command
+
+On the GPU server:
+
+```bash
+nix develop .#server
+uv sync --frozen --extra cuda --group dev
+CUDA_VISIBLE_DEVICES=0 scripts/run_full_panel.sh configs/panel.full.yaml
+```
+
+The panel writes normalized metrics to `results/panel_electra_small/metrics/raw/` and regenerates all CSV/JSON tables through `scripts/aggregate_metrics.py`. The full panel is resumable; delete a run directory and its corresponding `metrics/raw/*.json` file to force a rerun.
