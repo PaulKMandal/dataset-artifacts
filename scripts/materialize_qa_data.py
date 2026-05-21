@@ -106,3 +106,19 @@ def materialize_one(name: str, records: Iterable[dict], out_dir: Path) -> dict:
     path = out_dir / f"{name}.jsonl"
     count = write_jsonl(records, path)
     return {"name": name, "path": str(path), "num_examples": count, "sha256": sha256_file(path)}
+
+def materialize_squad(args: Namespace, out_dir: Path) -> dict[str, dict]:
+    if args.squad_train_json and args.squad_dev_json:
+        return {
+            "squad_train": materialize_one(
+                "squad_train", flatten_squad_json(Path(args.squad_train_json), with_idx=True), out_dir
+            ),
+            "squad_dev": materialize_one(
+                "squad_dev", flatten_squad_json(Path(args.squad_dev_json), with_idx=False), out_dir
+            ),
+        }
+    squad = datasets.load_dataset("squad")
+    return {
+        "squad_train": materialize_one("squad_train", dataset_records(squad, "train", with_idx=True), out_dir),
+        "squad_dev": materialize_one("squad_dev", dataset_records(squad, "validation", with_idx=False), out_dir),
+    }
