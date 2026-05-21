@@ -90,3 +90,12 @@ def write_rows(rows: list[dict], out: Path) -> None:
         writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         writer.writeheader()
         writer.writerows(rows)
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--features", required=True)
+    parser.add_argument("--out", required=True)
+    args = parser.parse_args()
+    out = Path(args.out)
+    write_rows(build_rows(pd.read_csv(args.features)), out)
+    print(f"Wrote {out}")
