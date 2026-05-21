@@ -77,3 +77,12 @@ def read_scores(path: Path) -> dict[int, dict]:
     if not scores:
         raise SystemExit(f"No cartography scores loaded from {path}")
     return scores
+
+def answer_summary(example: dict) -> tuple[str, str, str]:
+    answers = example.get("answers", {})
+    texts = answers.get("text", []) if isinstance(answers, dict) else []
+    starts = answers.get("answer_start", []) if isinstance(answers, dict) else []
+    answer_text = texts[0] if texts else ""
+    answer_start = starts[0] if starts else ""
+    answer_length = len(answer_text.split()) if answer_text else 0
+    return answer_text, str(answer_start), str(answer_length)
