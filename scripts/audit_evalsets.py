@@ -75,3 +75,12 @@ def label_check_lines(by_evalset: dict[str, list[dict]]) -> list[str]:
     else:
         lines.append("Conclusion: CHECK REQUIRED before reporting AddSent/AddOneSent table labels.")
     return lines
+
+def write_audit(results_dir: Path) -> Path:
+    logs_dir = results_dir / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    out = logs_dir / "table_audit.md"
+    by_evalset = group_by_evalset(load_metrics(results_dir))
+    lines = audit_table(by_evalset) + label_check_lines(by_evalset)
+    out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return out
