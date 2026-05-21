@@ -138,3 +138,9 @@ def materialize_addonesent(args: Namespace, out_dir: Path) -> dict:
         "stanfordnlp/squad_adversarial", "AddOneSent", trust_remote_code=args.trust_remote_code
     )
     return materialize_one("addonesent", dataset_records(addonesent, "validation", with_idx=False), out_dir)
+
+def write_manifest(manifest: dict[str, dict], out_dir: Path) -> Path:
+    manifest_path = out_dir / "dataset_manifest.json"
+    with manifest_path.open("w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2, sort_keys=True)
+    return manifest_path
