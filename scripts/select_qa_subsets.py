@@ -276,3 +276,6 @@ def main() -> None:
     manifest_path, assignments_path = build_outputs(parse_args())
     print(f"Wrote {manifest_path}")
     print(f"Wrote {assignments_path}")
+
+if __name__ == "__main__":
+    main()
