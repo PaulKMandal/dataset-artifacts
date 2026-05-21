@@ -90,3 +90,6 @@ def main() -> None:
     parser.add_argument("--results-dir", required=True)
     args = parser.parse_args()
     print(f"Wrote {write_audit(Path(args.results_dir))}")
+
+if __name__ == "__main__":
+    main()
