@@ -46,3 +46,11 @@ class TrainSpec:
     num_train_epochs: float
     max_steps: int | None
     save_dynamics: bool
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default="configs/panel.full.yaml")
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--no-resume", action="store_true")
+    parser.add_argument("--limit-runs", type=int, default=None, help="Debugging aid; do not use for final tables.")
+    return parser.parse_args()
