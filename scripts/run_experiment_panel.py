@@ -261,3 +261,43 @@ def check_eval_outputs(eval_out: Path) -> tuple[Path, Path]:
     if not predictions_path.exists():
         raise FileNotFoundError(predictions_path)
     return metrics_path, predictions_path
+
+def normalized_eval_metrics(
+    cfg: dict[str, Any],
+    spec: TrainSpec,
+    evalset: str,
+    eval_path: str,
+    metrics_path: Path,
+    predictions_dest: Path,
+) -> dict[str, Any]:
+    results_dir = Path(cfg["panel"]["results_dir"])
+    metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+    eval_data_path = Path(eval_path)
+    train_data_path = Path(spec.train_data)
+    return {
+        "run_id": f"{spec.run_id}__{evalset}",
+        "train_run_id": spec.run_id,
+        "model": spec.model_name,
+        "model_short": spec.model_short,
+        "train_subset": spec.train_subset,
+        "subset_size": read_jsonl_count(train_data_path),
+        "subset_fraction": spec.subset_fraction,
+        "subset_draw_id": spec.subset_draw_id,
+        "seed": spec.seed,
+        "train_budget_type": spec.train_budget_type,
+        "num_train_epochs": spec.num_train_epochs,
+        "max_steps": spec.max_steps,
+        "evalset": evalset,
+        "num_eval_examples": read_jsonl_count(eval_data_path),
+        "exact_match": metrics.get("eval_exact_match"),
+        "f1": metrics.get("eval_f1"),
+        "eval_script": "run.py/custom_squad_postprocess",
+        "dataset_path": str(eval_data_path),
+        "dataset_hash": sha256_file(eval_data_path),
+        "train_dataset_path": str(train_data_path),
+        "train_dataset_hash": sha256_file(train_data_path),
+        "predictions_path": str(predictions_dest),
+        "config_path": str(results_dir / "configs" / f"{spec.run_id}.yaml"),
+        "confidence_definition": spec.confidence_definition,
+        "created_at_utc": now_utc(),
+    }
