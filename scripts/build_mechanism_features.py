@@ -89,3 +89,31 @@ def load_cartography_by_id(path: Path | None) -> dict[str, dict]:
     with path.open("r", encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
         return {row.get("example_id", row.get("id", "")): row for row in reader if row.get("example_id", row.get("id", ""))}
+
+def mechanism_row(clean: dict, adv: dict, evalset: str, cart: dict) -> dict:
+    answer_text, answer_start = answer_info(clean)
+    context_length = len(clean.get("context", "").split())
+    answer_length = len(answer_text.split())
+    answer_position_normalized = answer_start / max(len(clean.get("context", "")), 1) if answer_start is not None else math.nan
+    ans_sent = answer_sentence(clean.get("context", ""), answer_start)
+    added = added_sentences(clean.get("context", ""), adv.get("context", ""))
+    q = clean.get("question", "")
+    baseline_correct = float(clean.get("exact_match", 0.0))
+    adversarial_correct = float(adv.get("exact_match", 0.0))
+    return {
+        "example_id": adv["id"],
+        "evalset": evalset,
+        "baseline_correct": baseline_correct,
+        "adversarial_correct": adversarial_correct,
+        "adversarial_failure": float(baseline_correct >= 1.0 and adversarial_correct < 1.0),
+        "confidence": cart.get("confidence", ""),
+        "variability": cart.get("variability", ""),
+        "correctness": cart.get("correctness", ""),
+        "context_length": context_length,
+        "answer_length": answer_length,
+        "answer_position_normalized": answer_position_normalized,
+        "question_type": question_type(q),
+        "question_answer_sentence_overlap": overlap(q, ans_sent),
+        "question_distractor_overlap": max([overlap(q, sent) for sent in added], default=0.0),
+        "num_added_sentences": len(added),
+    }
