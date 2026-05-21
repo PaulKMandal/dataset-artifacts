@@ -178,3 +178,40 @@ Useful NixOS/Home Manager options:
 programs.direnv.enable = true;
 programs.direnv.nix-direnv.enable = true;
 ```
+
+## Full experiment panel
+
+The full ELECTRA-small panel is configured in `configs/panel.full.yaml` and launched with:
+
+```bash
+nix develop .#server
+uv sync --frozen --extra cuda --group dev
+CUDA_VISIBLE_DEVICES=0 scripts/run_full_panel.sh configs/panel.full.yaml
+```
+
+The panel is resumable. It materializes SQuAD/AddSent/AddOneSent as flat JSONL files with hashes, trains the full-data seed-42 cartography source model, generates joint/endpoint/negative-loss subset files, runs the Tier A/B ELECTRA-small matrix, evaluates every trained model on SQuAD dev, AddSent, and AddOneSent, writes raw predictions, normalizes metrics, and regenerates aggregate tables.
+
+Primary outputs:
+
+```text
+results/panel_electra_small/
+  configs/
+  logs/command_log.txt
+  logs/environment.txt
+  logs/git_commit.txt
+  logs/table_audit.md
+  metrics/raw/*.json
+  metrics/seed_level_metrics.csv
+  metrics/main_table.csv
+  metrics/random_subset_distribution.csv
+  metrics/confidence_definition_ablation.csv
+  predictions/*.jsonl
+  cartography/cartography_scores.csv
+  cartography/subset_assignments.csv
+```
+
+For a smaller deadline-safe panel, run:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 scripts/run_full_panel.sh configs/panel.minimum.yaml
+```
