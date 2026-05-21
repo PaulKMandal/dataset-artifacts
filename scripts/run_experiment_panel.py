@@ -452,3 +452,23 @@ def subset_selection_args(
         "--fractions",
         *[str(x) for x in fractions],
     ]
+
+def run_subset_selection(
+    cfg: dict[str, Any],
+    csv_path: Path,
+    name: str,
+    definition: dict[str, Any],
+    *,
+    log_path: Path,
+    dry_run: bool,
+    resume: bool,
+) -> None:
+    cart_dir = Path(cfg["panel"]["results_dir"]) / "cartography"
+    subsets_out = Path(cfg["data"]["subsets_dir"]) / name
+    assignments_out = cart_dir / ("subset_assignments.csv" if name == cfg["cartography"]["primary"] else f"subset_assignments_{name}.csv")
+    manifest_path = subsets_out / "subset_manifest.csv"
+    if resume and manifest_path.exists() and assignments_out.exists():
+        print(f"[skip subset selection] {name}")
+        return
+    args = subset_selection_args(cfg, csv_path, subsets_out, assignments_out, name, definition)
+    run_cmd(args, log_path=log_path, dry_run=dry_run)
