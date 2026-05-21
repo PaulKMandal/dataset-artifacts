@@ -122,3 +122,12 @@ def environment_lines() -> list[str]:
         if key.startswith(("CUDA", "DATASET_ARTIFACTS", "HF_", "TRANSFORMERS", "UV_")):
             lines.append(f"{key}={os.environ[key]}")
     return lines
+
+def write_environment_logs(results_dir: Path) -> None:
+    logs_dir = results_dir / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    (logs_dir / "git_commit.txt").write_text(
+        "\n".join([capture_cmd(["git", "rev-parse", "HEAD"]), "", "git status --short:", capture_cmd(["git", "status", "--short"]), ""]),
+        encoding="utf-8",
+    )
+    (logs_dir / "environment.txt").write_text("\n".join(environment_lines()) + "\n", encoding="utf-8")
