@@ -11,3 +11,17 @@ model:
   short_name: electra_small
   name_or_path: google/electra-small-discriminator
   max_seq_length: 384
+
+training:
+  num_train_epochs: 3
+  same_steps_fallback_max_steps: 8214  # replaced by full seed-42 trainer_state.global_step when available
+  learning_rate: 5.0e-5
+  warmup_ratio: 0.0
+  weight_decay: 0.0
+  per_device_train_batch_size: 32
+  per_device_eval_batch_size: 64
+  fp16: true
+  fp16_eval: true
+
+# The panel materializes these files from HF datasets unless local source JSONs
+# are supplied. The generated dataset_manifest.json records counts and hashes.
