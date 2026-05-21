@@ -22,3 +22,13 @@ CANDIDATE_FEATURES = [
     "question_distractor_overlap",
     "num_added_sentences",
 ]
+
+def roc_auc(y: np.ndarray, score: np.ndarray) -> float:
+    pos = score[y == 1]
+    neg = score[y == 0]
+    if len(pos) == 0 or len(neg) == 0:
+        return float("nan")
+    greater = 0.0
+    for p in pos:
+        greater += np.sum(p > neg) + 0.5 * np.sum(p == neg)
+    return float(greater / (len(pos) * len(neg)))
