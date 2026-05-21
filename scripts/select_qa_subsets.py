@@ -271,3 +271,8 @@ def build_outputs(args: Namespace) -> tuple[Path, Path]:
     write_csv(manifest_rows, manifest_path)
     write_csv(assignment_rows, assignments_path)
     return manifest_path, assignments_path
+
+def main() -> None:
+    manifest_path, assignments_path = build_outputs(parse_args())
+    print(f"Wrote {manifest_path}")
+    print(f"Wrote {assignments_path}")
