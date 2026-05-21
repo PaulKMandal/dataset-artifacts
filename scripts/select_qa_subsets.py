@@ -241,3 +241,12 @@ def append_assignment_rows(
                 rank=rank,
             )
         )
+
+def write_csv(rows: list[dict], path: Path) -> None:
+    if not rows:
+        raise SystemExit(f"No rows available for {path}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        writer.writeheader()
+        writer.writerows(rows)
