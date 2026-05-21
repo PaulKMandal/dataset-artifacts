@@ -74,3 +74,11 @@ def added_sentences(clean_context: str, adv_context: str) -> list[str]:
 def question_type(question: str) -> str:
     stripped = question.strip().lower()
     return stripped.split(maxsplit=1)[0].rstrip(":?") if stripped else ""
+
+def answer_info(row: dict) -> tuple[str, int | None]:
+    answers = row.get("answers", {})
+    texts = answers.get("text", []) if isinstance(answers, dict) else []
+    starts = answers.get("answer_start", []) if isinstance(answers, dict) else []
+    text = texts[0] if texts else ""
+    start = int(starts[0]) if starts else None
+    return text, start
