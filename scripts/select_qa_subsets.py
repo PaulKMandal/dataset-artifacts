@@ -184,3 +184,37 @@ def select_random_subsets(
             }
         )
     return manifest_rows
+
+def assignment_row(
+    idx: int,
+    example: dict,
+    score: dict,
+    selected_by_name: dict[str, set[int]],
+    args: Namespace,
+    *,
+    frac: float,
+    rank: int,
+) -> dict:
+    answer_text, answer_start, answer_length = answer_summary(example)
+    return {
+        "idx": idx,
+        "example_id": example.get("id", ""),
+        "title": example.get("title", ""),
+        "question": example.get("question", ""),
+        "answer_text": answer_text,
+        "answer_start": answer_start,
+        "context_length": len(example.get("context", "").split()),
+        "answer_length": answer_length,
+        "question_type": question_type(example.get("question", "")),
+        "confidence": score["confidence"],
+        "variability": score["variability"],
+        "correctness": score["correctness"],
+        "region": score.get("region", ""),
+        "selection_rank": rank,
+        "subset_fraction": frac,
+        "confidence_definition": args.confidence_definition,
+        "selection_rule": "confidence_variability_rank",
+        "selected_easy": idx in selected_by_name["easy"],
+        "selected_ambiguous": idx in selected_by_name["ambiguous"],
+        "selected_hard": idx in selected_by_name["hard"],
+    }
