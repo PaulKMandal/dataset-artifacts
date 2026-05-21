@@ -208,3 +208,9 @@ def train_is_done(out_dir: Path, spec: TrainSpec) -> bool:
             or any(out_dir.glob("training_dynamics.rank*.jsonl"))
         )
     return done
+
+def write_train_config_copy(cfg: dict[str, Any], spec: TrainSpec) -> None:
+    config_copy = Path(cfg["panel"]["results_dir"]) / "configs" / f"{spec.run_id}.yaml"
+    config_copy.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"train_spec": asdict(spec), "panel_config": cfg}
+    config_copy.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
