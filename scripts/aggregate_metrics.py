@@ -110,6 +110,25 @@ def make_main_table(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows).sort_values(group_cols)
 
 
+def make_random_subset_distribution(df: pd.DataFrame) -> pd.DataFrame:
+    needed = [
+        "model",
+        "subset_fraction",
+        "subset_draw_id",
+        "seed",
+        "train_budget_type",
+        "confidence_definition",
+        "evalset",
+        "exact_match",
+        "f1",
+    ]
+    available = [c for c in needed if c in df.columns]
+    random_df = df[df["train_subset"] == "random"].copy()
+    if random_df.empty:
+        return pd.DataFrame(columns=needed)
+    return random_df[available].sort_values([c for c in available if c not in {"exact_match", "f1"}])
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--metrics-dir", required=True)
