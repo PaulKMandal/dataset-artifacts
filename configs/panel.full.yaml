@@ -91,3 +91,9 @@ experiments:
     enabled: true
     fraction: 0.333
     seeds: [13, 21, 42]
+  budget_10:
+    enabled: true
+    fraction: 0.10
+    subsets: [random, easy, ambiguous, hard]
+    seeds: [42]
+    random_draws: 5
