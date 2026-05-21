@@ -97,3 +97,9 @@ experiments:
     subsets: [random, easy, ambiguous, hard]
     seeds: [42]
     random_draws: 5
+  budget_20:
+    enabled: true
+    fraction: 0.20
+    subsets: [random, easy, ambiguous, hard]
+    seeds: [42]
+    random_draws: 5
