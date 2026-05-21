@@ -76,9 +76,11 @@ def bootstrap_ci(values: pd.Series, n: int = 10000, seed: int = 12345) -> tuple[
 
 
 def make_main_table(df: pd.DataFrame) -> pd.DataFrame:
-    group_cols = ["model", "train_subset", "subset_fraction", "train_budget_type"]
+    group_cols = [c for c in GROUP_COLS if c in df.columns]
     rows = []
     for keys, group in df.groupby(group_cols, dropna=False):
+        if not isinstance(keys, tuple):
+            keys = (keys,)
         row = dict(zip(group_cols, keys))
         row["n_seeds"] = group["seed"].nunique() if "seed" in group else None
         if "subset_draw_id" in group:
@@ -88,15 +90,22 @@ def make_main_table(df: pd.DataFrame) -> pd.DataFrame:
         for evalset in sorted(group["evalset"].dropna().unique()):
             sub = group[group["evalset"] == evalset]
             prefix = evalset.lower()
-            row[f"{prefix}_em_mean"] = sub["exact_match"].mean()
-            row[f"{prefix}_em_std"] = sub["exact_match"].std(ddof=1) if len(sub) > 1 else 0.0
-            row[f"{prefix}_f1_mean"] = sub["f1"].mean()
-            row[f"{prefix}_f1_std"] = sub["f1"].std(ddof=1) if len(sub) > 1 else 0.0
+            for metric, suffix in [("exact_match", "em"), ("f1", "f1")]:
+                vals = sub[metric].dropna().astype(float)
+                row[f"{prefix}_{suffix}_mean"] = vals.mean() if len(vals) else np.nan
+                row[f"{prefix}_{suffix}_std"] = vals.std(ddof=1) if len(vals) > 1 else 0.0
+                ci_low, ci_high = bootstrap_ci(vals)
+                row[f"{prefix}_{suffix}_ci_low"] = ci_low
+                row[f"{prefix}_{suffix}_ci_high"] = ci_high
         for drop_col in ["addsent_drop_f1", "addonesent_drop_f1", "addsent_drop_em", "addonesent_drop_em"]:
             if drop_col in group:
-                vals = group[drop_col].dropna()
+                vals = group[drop_col].dropna().astype(float)
                 if len(vals):
                     row[f"{drop_col}_mean"] = vals.mean()
+                    row[f"{drop_col}_std"] = vals.std(ddof=1) if len(vals) > 1 else 0.0
+                    ci_low, ci_high = bootstrap_ci(vals)
+                    row[f"{drop_col}_ci_low"] = ci_low
+                    row[f"{drop_col}_ci_high"] = ci_high
         rows.append(row)
     return pd.DataFrame(rows).sort_values(group_cols)
 
