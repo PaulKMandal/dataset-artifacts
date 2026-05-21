@@ -20,3 +20,16 @@ training:
   per_device_eval_batch_size: 64
   fp16: true
   fp16_eval: true
+
+data:
+  data_dir: data/qa
+  subsets_dir: data/subsets
+  squad_train: data/qa/squad_train.jsonl
+  evalsets:
+    squad_dev: data/qa/squad_dev.jsonl
+    addsent: data/qa/addsent.jsonl
+    addonesent: data/qa/addonesent.jsonl
+  squad_train_json: null
+  squad_dev_json: null
+  addsent_json: null
+  addonesent_json: null
