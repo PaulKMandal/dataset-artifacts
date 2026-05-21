@@ -750,3 +750,28 @@ def run_training_and_eval_specs(
         train_model(cfg, spec, log_path=log_path, dry_run=dry_run, resume=resume)
         for evalset, eval_path in cfg["data"]["evalsets"].items():
             eval_model(cfg, spec, evalset, eval_path, log_path=log_path, dry_run=dry_run, resume=resume)
+
+def main() -> None:
+    args = parse_args()
+    cfg = yaml.safe_load(Path(args.config).read_text(encoding="utf-8"))
+    results_dir = prepare_results_dir(cfg, args.config)
+    log_path = results_dir / "logs" / "command_log.txt"
+    resume = not args.no_resume and bool(cfg["panel"].get("resume", True))
+
+    ensure_data(cfg, log_path=log_path, dry_run=args.dry_run)
+    if not args.dry_run:
+        write_environment_logs(results_dir)
+
+    source_spec = full_seed42_spec(cfg)
+    train_model(cfg, source_spec, log_path=log_path, dry_run=args.dry_run, resume=resume)
+    run_cartography(cfg, source_spec, log_path=log_path, dry_run=args.dry_run, resume=resume)
+
+    same_steps = parse_full_steps(source_spec, int(cfg["training"].get("same_steps_fallback_max_steps", 8214)))
+    print(f"[same_steps target] {same_steps}")
+    specs = build_specs(cfg, same_steps)
+    if args.limit_runs is not None:
+        specs = specs[: args.limit_runs]
+
+    run_training_and_eval_specs(cfg, specs, log_path=log_path, dry_run=args.dry_run, resume=resume)
+    aggregate(cfg, log_path=log_path, dry_run=args.dry_run)
+    print(f"Panel complete. Results root: {results_dir}")
