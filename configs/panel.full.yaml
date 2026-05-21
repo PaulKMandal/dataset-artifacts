@@ -63,3 +63,8 @@ experiments:
   full_baseline:
     enabled: true
     seeds: [13, 21, 42, 87, 100]
+  random_33:
+    enabled: true
+    fraction: 0.333
+    seeds: [13, 21, 42]
+    random_draws: 10
