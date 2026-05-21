@@ -603,3 +603,9 @@ def add_named_fraction_specs(specs: dict[str, TrainSpec], cfg: dict[str, Any], e
             train_data=subset_path(cfg, primary, subset, frac),
             max_steps=max_steps,
         )
+
+def add_tier_a_specs(specs: dict[str, TrainSpec], cfg: dict[str, Any]) -> None:
+    add_full_baseline_specs(specs, cfg)
+    add_random_fraction_specs(specs, cfg, "random_33", "same_epochs")
+    for exp_name, subset in [("easy_33", "easy"), ("ambiguous_33", "ambiguous"), ("hard_33", "hard")]:
+        add_named_fraction_specs(specs, cfg, exp_name, subset, "same_epochs")
