@@ -720,3 +720,8 @@ def run_mechanism_analysis(cfg: dict[str, Any], *, log_path: Path, dry_run: bool
         log_path=log_path,
         dry_run=dry_run,
     )
+
+def run_final_audits(cfg: dict[str, Any], *, log_path: Path, dry_run: bool) -> None:
+    results_dir = Path(cfg["panel"]["results_dir"])
+    run_cmd([sys.executable, "scripts/audit_evalsets.py", "--results-dir", str(results_dir)], log_path=log_path, dry_run=dry_run)
+    run_cmd([sys.executable, "scripts/validate_results_tree.py", "--results-dir", str(results_dir)], log_path=log_path, dry_run=dry_run)
