@@ -76,3 +76,18 @@ def read_jsonl_count(path: Path) -> int:
             if line.strip():
                 count += 1
     return count
+
+def run_cmd(args: list[str], *, log_path: Path, dry_run: bool = False, cwd: Path | None = None) -> None:
+    cwd = cwd or Path.cwd()
+    display = shlex.join(args)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with log_path.open("a", encoding="utf-8") as f:
+        f.write(f"\n[{now_utc()}] cwd={cwd}\n$ {display}\n")
+    print(f"$ {display}")
+    if dry_run:
+        return
+    start = time.time()
+    subprocess.run(args, cwd=str(cwd), check=True)
+    elapsed = time.time() - start
+    with log_path.open("a", encoding="utf-8") as f:
+        f.write(f"[elapsed_seconds] {elapsed:.1f}\n")
