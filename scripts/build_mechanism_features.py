@@ -18,3 +18,11 @@ from argparse import Namespace
 from pathlib import Path
 
 from qa_metrics import normalize_answer
+
+def parse_args() -> Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--clean-predictions", required=True)
+    parser.add_argument("--adversarial-predictions", nargs="+", required=True)
+    parser.add_argument("--cartography-scores", default=None)
+    parser.add_argument("--out", required=True)
+    return parser.parse_args()
