@@ -487,3 +487,11 @@ def run_cartography(cfg: dict[str, Any], source_spec: TrainSpec, *, log_path: Pa
         csv_path = run_cartography_scores(cfg, source_spec, name, definition, log_path=log_path, dry_run=dry_run, resume=resume)
         run_subset_selection(cfg, csv_path, name, definition, log_path=log_path, dry_run=dry_run, resume=resume)
     publish_primary_cartography(cfg, dry_run=dry_run)
+
+def parse_full_steps(source_spec: TrainSpec, fallback: int) -> int:
+    state_path = Path(source_spec.output_dir) / "trainer_state.json"
+    if state_path.exists():
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        if state.get("global_step"):
+            return int(state["global_step"])
+    return int(fallback)
