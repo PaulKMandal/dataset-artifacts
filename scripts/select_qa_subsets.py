@@ -86,3 +86,7 @@ def answer_summary(example: dict) -> tuple[str, str, str]:
     answer_start = starts[0] if starts else ""
     answer_length = len(answer_text.split()) if answer_text else 0
     return answer_text, str(answer_start), str(answer_length)
+
+def question_type(question: str) -> str:
+    stripped = question.strip().lower()
+    return stripped.split(maxsplit=1)[0].rstrip(":?") if stripped else ""
