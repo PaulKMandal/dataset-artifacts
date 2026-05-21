@@ -227,8 +227,11 @@ def main():
         "--confidence_field",
         type=str,
         default="confidence",
-        choices=["confidence", "joint_confidence"],
-        help="For scalar QA rows, choose endpoint-average confidence or joint span confidence.",
+        choices=["confidence", "joint_confidence", "negative_gold_span_loss"],
+        help=(
+            "For scalar QA rows, choose endpoint-average confidence, joint span "
+            "confidence, or negative gold-span loss. Negative loss is higher-is-better."
+        ),
     )
     args = parser.parse_args()
 
