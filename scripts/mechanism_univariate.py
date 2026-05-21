@@ -45,3 +45,26 @@ def average_precision(y: np.ndarray, score: np.ndarray) -> float:
             tp += 1
             precisions.append(tp / i)
     return float(np.mean(precisions)) if precisions else float("nan")
+
+def summarize_feature(evalset: str, group: pd.DataFrame, feature: str) -> dict | None:
+    y = group["adversarial_failure"].astype(float).to_numpy()
+    vals = pd.to_numeric(group[feature], errors="coerce")
+    mask = vals.notna().to_numpy()
+    if mask.sum() < 2 or len(np.unique(vals[mask])) < 2:
+        return None
+    score = vals[mask].astype(float).to_numpy()
+    y_masked = y[mask]
+    auc = roc_auc(y_masked, score)
+    ap = average_precision(y_masked, score)
+    auc_flipped = roc_auc(y_masked, -score)
+    ap_flipped = average_precision(y_masked, -score)
+    return {
+        "evalset": evalset,
+        "feature": feature,
+        "n": int(mask.sum()),
+        "positive_rate": float(y_masked.mean()),
+        "roc_auc": auc,
+        "average_precision": ap,
+        "roc_auc_abs_best_direction": max(auc, auc_flipped),
+        "average_precision_flipped": ap_flipped,
+    }
