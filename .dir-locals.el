@@ -13,6 +13,7 @@
                             ".cache/"
                             ".nix-driver-libs/"
                             "wandb/"
+                            "data/"
                             "results/"
                             "outputs/"
                             "checkpoint-*/"
