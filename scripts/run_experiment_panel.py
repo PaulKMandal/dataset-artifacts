@@ -91,3 +91,9 @@ def run_cmd(args: list[str], *, log_path: Path, dry_run: bool = False, cwd: Path
     elapsed = time.time() - start
     with log_path.open("a", encoding="utf-8") as f:
         f.write(f"[elapsed_seconds] {elapsed:.1f}\n")
+
+def capture_cmd(args: list[str]) -> str:
+    try:
+        return subprocess.check_output(args, stderr=subprocess.STDOUT, text=True).strip()
+    except Exception as exc:  # noqa: BLE001 - environment logging should not fail the panel
+        return f"FAILED {shlex.join(args)}: {exc}"
