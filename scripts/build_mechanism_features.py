@@ -26,3 +26,11 @@ def parse_args() -> Namespace:
     parser.add_argument("--cartography-scores", default=None)
     parser.add_argument("--out", required=True)
     return parser.parse_args()
+
+def read_jsonl(path: Path) -> list[dict]:
+    rows = []
+    with path.open("r", encoding="utf-8") as f:
+        for line in f:
+            if line.strip():
+                rows.append(json.loads(line))
+    return rows
