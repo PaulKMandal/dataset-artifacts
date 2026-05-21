@@ -317,3 +317,25 @@ def write_eval_metrics(
     normalized = normalized_eval_metrics(cfg, spec, evalset, eval_path, metrics_path, predictions_dest)
     raw_metrics_path.parent.mkdir(parents=True, exist_ok=True)
     raw_metrics_path.write_text(json.dumps(normalized, indent=2, sort_keys=True), encoding="utf-8")
+
+def eval_model(
+    cfg: dict[str, Any],
+    spec: TrainSpec,
+    evalset: str,
+    eval_path: str,
+    *,
+    log_path: Path,
+    dry_run: bool,
+    resume: bool,
+) -> None:
+    results_dir = Path(cfg["panel"]["results_dir"])
+    eval_run_id = f"{spec.run_id}__{evalset}"
+    eval_out = results_dir / "evals" / eval_run_id
+    raw_metrics_path = results_dir / "metrics" / "raw" / f"{eval_run_id}.json"
+    if resume and raw_metrics_path.exists():
+        print(f"[skip eval] {eval_run_id}")
+        return
+    eval_out.mkdir(parents=True, exist_ok=True)
+    run_cmd(eval_args(cfg, spec, eval_path, eval_out), log_path=log_path, dry_run=dry_run)
+    if not dry_run:
+        write_eval_metrics(cfg, spec, evalset, eval_path, eval_out, raw_metrics_path)
