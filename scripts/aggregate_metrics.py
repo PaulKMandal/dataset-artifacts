@@ -64,6 +64,17 @@ def add_adversarial_drops(df: pd.DataFrame) -> pd.DataFrame:
     return long.drop(columns=helper_cols)
 
 
+def bootstrap_ci(values: pd.Series, n: int = 10000, seed: int = 12345) -> tuple[float, float]:
+    vals = values.dropna().astype(float).to_numpy()
+    if len(vals) == 0:
+        return np.nan, np.nan
+    if len(vals) == 1:
+        return float(vals[0]), float(vals[0])
+    rng = np.random.default_rng(seed)
+    samples = rng.choice(vals, size=(n, len(vals)), replace=True).mean(axis=1)
+    return float(np.percentile(samples, 2.5)), float(np.percentile(samples, 97.5))
+
+
 def make_main_table(df: pd.DataFrame) -> pd.DataFrame:
     group_cols = ["model", "train_subset", "subset_fraction", "train_budget_type"]
     rows = []
