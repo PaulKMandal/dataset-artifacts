@@ -30,3 +30,19 @@ import yaml
 
 
 @dataclass
+
+class TrainSpec:
+    run_id: str
+    model_short: str
+    model_name: str
+    train_subset: str
+    subset_fraction: float
+    subset_draw_id: int | None
+    seed: int
+    train_budget_type: str
+    train_data: str
+    output_dir: str
+    confidence_definition: str
+    num_train_epochs: float
+    max_steps: int | None
+    save_dynamics: bool
