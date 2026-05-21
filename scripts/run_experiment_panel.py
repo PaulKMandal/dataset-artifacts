@@ -214,3 +214,12 @@ def write_train_config_copy(cfg: dict[str, Any], spec: TrainSpec) -> None:
     config_copy.parent.mkdir(parents=True, exist_ok=True)
     payload = {"train_spec": asdict(spec), "panel_config": cfg}
     config_copy.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+def train_model(cfg: dict[str, Any], spec: TrainSpec, *, log_path: Path, dry_run: bool, resume: bool) -> None:
+    out_dir = Path(spec.output_dir)
+    if resume and train_is_done(out_dir, spec):
+        print(f"[skip train] {spec.run_id}")
+        return
+    out_dir.mkdir(parents=True, exist_ok=True)
+    write_train_config_copy(cfg, spec)
+    run_cmd(base_train_args(cfg, spec), log_path=log_path, dry_run=dry_run)
