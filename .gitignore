@@ -3,7 +3,7 @@ __pycache__/
 .ipynb_checkpoints/
 .venv/
 .env
-.envrc
+.envrc.local
 .ruff_cache/
 .pytest_cache/
 .mypy_cache/

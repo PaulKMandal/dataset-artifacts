@@ -38,6 +38,7 @@ rsync -az --delete --info=stats2 \
   --exclude='.ruff_cache/' \
   --exclude='__pycache__/' \
   --exclude='*.pyc' \
+  --exclude='data/' \
   --exclude='results/' \
   --exclude='server_results/' \
   --exclude='output/' \

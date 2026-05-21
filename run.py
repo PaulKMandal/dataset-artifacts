@@ -20,6 +20,7 @@ from helpers import (
     prepare_train_dataset_qa,
     prepare_validation_dataset_qa,
 )
+from qa_metrics import squad_exact_match, squad_f1
 
 NUM_PREPROCESSING_WORKERS = int(os.environ.get("DATASET_ARTIFACTS_PREPROCESSING_WORKERS", "2"))
 
@@ -32,7 +33,13 @@ def _load_dataset(task: str, dataset_arg: str | None):
     default_datasets = {"qa": ("squad",), "nli": ("snli",)}
     dataset_id = tuple(dataset_arg.split(":")) if dataset_arg is not None else default_datasets[task]
     eval_split = "validation_matched" if dataset_id == ("glue", "mnli") else "validation"
-    dataset = datasets.load_dataset(*dataset_id)
+    load_kwargs = {}
+    # The adversarial SQuAD HF dataset uses a dataset script/config pair.
+    # Passing trust_remote_code keeps this path usable with recent versions of
+    # `datasets`; local JSONL materialization remains the preferred panel path.
+    if dataset_id and dataset_id[0] == "stanfordnlp/squad_adversarial":
+        load_kwargs["trust_remote_code"] = True
+    dataset = datasets.load_dataset(*dataset_id, **load_kwargs)
     return dataset, dataset_id, eval_split
 
 
@@ -132,7 +139,10 @@ def main():
         train_dataset = dataset["train"]
         if args.max_train_samples:
             train_dataset = train_dataset.select(range(args.max_train_samples))
-        train_dataset = train_dataset.map(lambda ex, idx: {"idx": idx}, with_indices=True)
+        # Preserve an existing stable original-example index in materialized
+        # subset JSONL files. HF SQuAD has no idx column, so we add one there.
+        if "idx" not in train_dataset.column_names:
+            train_dataset = train_dataset.map(lambda ex, idx: {"idx": idx}, with_indices=True)
         train_dataset_featurized = train_dataset.map(
             prepare_train_dataset,
             batched=True,
@@ -238,9 +248,12 @@ def main():
                     }
                     for example in eval_dataset:
                         example_with_prediction = dict(example)
-                        example_with_prediction["predicted_answer"] = predictions_by_id.get(
-                            example["id"], ""
+                        predicted_answer = predictions_by_id.get(example["id"], "")
+                        example_with_prediction["predicted_answer"] = predicted_answer
+                        example_with_prediction["exact_match"] = squad_exact_match(
+                            predicted_answer, example["answers"]
                         )
+                        example_with_prediction["f1"] = squad_f1(predicted_answer, example["answers"])
                         f.write(json.dumps(example_with_prediction) + "\n")
                 else:
                     for i, example in enumerate(eval_dataset):

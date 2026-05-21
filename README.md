@@ -137,23 +137,64 @@ scripts/remote_run.sh uv run python run.py \
 PULL_MODELS=1 scripts/pull_results.sh
 ```
 
-## Using this handoff
-
-The handoff ZIP includes the original `.git` history from the uploaded repository plus a new branch and commit. After unzipping:
-
-```bash
-cd dataset-artifacts
-git status
-git log --oneline --decorate --max-count=3
-git push -u origin fast-dynamics-nix-uv
-```
-
-If GitHub does not attribute the commit to your account, amend the author email to the exact no-reply email shown in GitHub Settings -> Emails:
-
-```bash
-git commit --amend --author='PaulKMandal <EXACT_NOREPLY_FROM_GITHUB_SETTINGS>' --no-edit
-```
-
 ## Notes on validity
 
 The scalar logger preserves the old QA confidence definition by default: average of the gold start/end probabilities. It also logs `joint_confidence`, which is often a better span-level signal. Because SQuAD contexts may create multiple overflow features per raw example, the cartography score for one `idx` may aggregate multiple feature windows. This is documented and should be considered when interpreting example-level regions.
+
+## NixOS / direnv activation on a new PC
+
+This branch includes a checked-in `.envrc` for local editing. On a NixOS or Home Manager setup, enable direnv + nix-direnv once in your system/user config, then approve the project:
+
+```bash
+cd exp/squad-electra-small-cartography
+nix develop .#default
+uv sync --frozen --extra cpu --group dev
+
+direnv allow
+```
+
+After `direnv allow`, opening a shell in the repo activates `nix develop .#default` automatically. Dependency syncing stays explicit by default; set `DIRENV_AUTO_UV_SYNC=1` only if you want `uv sync --frozen --extra cpu --group dev` to run during direnv reloads.
+
+Useful NixOS/Home Manager options:
+
+```nix
+programs.direnv.enable = true;
+programs.direnv.nix-direnv.enable = true;
+```
+
+## Full experiment panel
+
+The full ELECTRA-small panel is configured in `configs/panel.full.yaml` and launched with:
+
+```bash
+nix develop .#server
+uv sync --frozen --extra cuda --group dev
+CUDA_VISIBLE_DEVICES=0 scripts/run_full_panel.sh configs/panel.full.yaml
+```
+
+The panel is resumable. It materializes SQuAD/AddSent/AddOneSent as flat JSONL files with hashes, trains the full-data seed-42 cartography source model, generates joint/endpoint/negative-loss subset files, runs the Tier A/B ELECTRA-small matrix, evaluates every trained model on SQuAD dev, AddSent, and AddOneSent, writes raw predictions, normalizes metrics, and regenerates aggregate tables.
+
+Primary outputs:
+
+```text
+results/panel_electra_small/
+  configs/
+  logs/command_log.txt
+  logs/environment.txt
+  logs/git_commit.txt
+  logs/table_audit.md
+  metrics/raw/*.json
+  metrics/seed_level_metrics.csv
+  metrics/main_table.csv
+  metrics/random_subset_distribution.csv
+  metrics/confidence_definition_ablation.csv
+  predictions/*.jsonl
+  cartography/cartography_scores.csv
+  cartography/subset_assignments.csv
+```
+
+For a smaller deadline-safe panel, run:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 scripts/run_full_panel.sh configs/panel.minimum.yaml
+```
