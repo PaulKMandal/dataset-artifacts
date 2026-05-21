@@ -404,3 +404,21 @@ def cartography_args(cfg: dict[str, Any], source_spec: TrainSpec, out_dir: Path,
     if cfg["cartography"].get("limit_scatter_samples"):
         args.extend(["--limit_scatter_samples", str(cfg["cartography"]["limit_scatter_samples"])])
     return args
+
+def run_cartography_scores(
+    cfg: dict[str, Any],
+    source_spec: TrainSpec,
+    name: str,
+    definition: dict[str, Any],
+    *,
+    log_path: Path,
+    dry_run: bool,
+    resume: bool,
+) -> Path:
+    out_dir = Path(cfg["panel"]["results_dir"]) / "cartography" / name
+    csv_path = out_dir / "cartography_scores.csv"
+    if resume and csv_path.exists():
+        print(f"[skip cartography] {name}")
+    else:
+        run_cmd(cartography_args(cfg, source_spec, out_dir, definition), log_path=log_path, dry_run=dry_run)
+    return csv_path
