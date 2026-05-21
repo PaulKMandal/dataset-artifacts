@@ -148,9 +148,17 @@ def main() -> None:
     with (out_dir / "main_table.json").open("w", encoding="utf-8") as f:
         json.dump(main_table.to_dict(orient="records"), f, indent=2)
 
+    random_dist = make_random_subset_distribution(df)
+    random_dist.to_csv(out_dir / "random_subset_distribution.csv", index=False)
+
+    confidence_ablation = df[df.get("confidence_definition", "").notna()] if "confidence_definition" in df else pd.DataFrame()
+    if not confidence_ablation.empty:
+        confidence_ablation.to_csv(out_dir / "confidence_definition_ablation.csv", index=False)
+
     print(f"Wrote {out_dir / 'seed_level_metrics.csv'}")
     print(f"Wrote {out_dir / 'main_table.csv'}")
     print(f"Wrote {out_dir / 'main_table.json'}")
+    print(f"Wrote {out_dir / 'random_subset_distribution.csv'}")
 
 
 if __name__ == "__main__":
