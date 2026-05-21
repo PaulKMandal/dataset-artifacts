@@ -131,3 +131,12 @@ def build_rows(args: Namespace) -> list[dict]:
             if clean is not None:
                 out_rows.append(mechanism_row(clean, adv, evalset, cart_by_id.get(adv["id"], {})))
     return out_rows
+
+def write_rows(rows: list[dict], out_path: Path) -> None:
+    if not rows:
+        raise SystemExit("No aligned clean/adversarial rows were found")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with out_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        writer.writeheader()
+        writer.writerows(rows)
