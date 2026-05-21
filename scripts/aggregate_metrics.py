@@ -36,8 +36,20 @@ def load_metrics(metrics_dir: Path) -> pd.DataFrame:
 
 
 def add_adversarial_drops(df: pd.DataFrame) -> pd.DataFrame:
-    key_cols = ["model", "train_subset", "subset_fraction", "subset_draw_id", "seed", "train_budget_type"]
-    pivot = df.pivot_table(index=key_cols, columns="evalset", values=["exact_match", "f1"], aggfunc="first")
+    key_cols = [c for c in KEY_COLS if c in df.columns]
+    work = df.copy()
+    helper_cols = []
+    for col in key_cols:
+        helper = f"__key_{col}"
+        helper_cols.append(helper)
+        work[helper] = work[col].astype(object).where(work[col].notna(), "__NONE__")
+
+    pivot = (
+        work.sort_values("evalset")
+        .drop_duplicates(helper_cols + ["evalset"], keep="first")
+        .set_index(helper_cols + ["evalset"])[["exact_match", "f1"]]
+        .unstack("evalset")
+    )
     pivot.columns = [f"{metric}_{evalset}" for metric, evalset in pivot.columns]
     pivot = pivot.reset_index()
 
@@ -47,8 +59,9 @@ def add_adversarial_drops(df: pd.DataFrame) -> pd.DataFrame:
         if f"exact_match_squad_dev" in pivot and f"exact_match_{evalset}" in pivot:
             pivot[f"{evalset}_drop_em"] = pivot["exact_match_squad_dev"] - pivot[f"exact_match_{evalset}"]
 
-    long = df.merge(pivot[key_cols + [c for c in pivot.columns if c.endswith("_drop_f1") or c.endswith("_drop_em")]], on=key_cols, how="left")
-    return long
+    drop_cols = [c for c in pivot.columns if c.endswith("_drop_f1") or c.endswith("_drop_em")]
+    long = work.merge(pivot[helper_cols + drop_cols], on=helper_cols, how="left")
+    return long.drop(columns=helper_cols)
 
 
 def make_main_table(df: pd.DataFrame) -> pd.DataFrame:
