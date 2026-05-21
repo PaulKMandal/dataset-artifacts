@@ -548,3 +548,20 @@ def add_spec(
         max_steps=max_steps,
         save_dynamics=save_dynamics,
     )
+
+def add_full_baseline_specs(specs: dict[str, TrainSpec], cfg: dict[str, Any]) -> None:
+    exp = cfg["experiments"]["full_baseline"]
+    if not exp.get("enabled", True):
+        return
+    source_seed = int(cfg["cartography"].get("source_seed", 42))
+    for seed in exp["seeds"]:
+        add_spec(
+            specs,
+            cfg,
+            subset="full",
+            frac=1.0,
+            seed=int(seed),
+            budget="same_epochs",
+            train_data=cfg["data"]["squad_train"],
+            save_dynamics=int(seed) == source_seed,
+        )
