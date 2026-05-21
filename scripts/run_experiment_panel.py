@@ -479,3 +479,11 @@ def publish_primary_cartography(cfg: dict[str, Any], *, dry_run: bool) -> None:
     top_csv = Path(cfg["panel"]["results_dir"]) / "cartography" / "cartography_scores.csv"
     if primary_csv.exists() and not dry_run:
         shutil.copy2(primary_csv, top_csv)
+
+def run_cartography(cfg: dict[str, Any], source_spec: TrainSpec, *, log_path: Path, dry_run: bool, resume: bool) -> None:
+    cart_dir = Path(cfg["panel"]["results_dir"]) / "cartography"
+    cart_dir.mkdir(parents=True, exist_ok=True)
+    for name, definition in cfg["cartography"]["definitions"].items():
+        csv_path = run_cartography_scores(cfg, source_spec, name, definition, log_path=log_path, dry_run=dry_run, resume=resume)
+        run_subset_selection(cfg, csv_path, name, definition, log_path=log_path, dry_run=dry_run, resume=resume)
+    publish_primary_cartography(cfg, dry_run=dry_run)
