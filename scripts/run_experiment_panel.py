@@ -504,3 +504,47 @@ def subset_path(cfg: dict[str, Any], confidence_definition: str, subset: str, fr
             raise ValueError("random subset requires draw_id")
         return str(base / f"random_frac{flabel}_draw{draw_id:02d}.jsonl")
     return str(base / f"{subset}_frac{flabel}.jsonl")
+
+def add_spec(
+    specs: dict[str, TrainSpec],
+    cfg: dict[str, Any],
+    *,
+    subset: str,
+    frac: float,
+    seed: int,
+    budget: str,
+    train_data: str,
+    draw_id: int | None = None,
+    confidence_definition: str | None = None,
+    max_steps: int | None = None,
+    save_dynamics: bool = False,
+) -> None:
+    model = cfg["model"]
+    training = cfg["training"]
+    confidence_definition = confidence_definition or cfg["cartography"]["primary"]
+    run_id = make_run_id(
+        model["short_name"],
+        subset,
+        frac,
+        seed,
+        budget,
+        draw_id=draw_id,
+        confidence_definition=confidence_definition,
+        primary_confidence_definition=cfg["cartography"]["primary"],
+    )
+    specs[run_id] = TrainSpec(
+        run_id=run_id,
+        model_short=model["short_name"],
+        model_name=model["name_or_path"],
+        train_subset=subset,
+        subset_fraction=frac,
+        subset_draw_id=draw_id,
+        seed=int(seed),
+        train_budget_type=budget,
+        train_data=train_data,
+        output_dir=str(Path(cfg["panel"]["results_dir"]) / "runs" / run_id),
+        confidence_definition=confidence_definition,
+        num_train_epochs=float(training["num_train_epochs"]),
+        max_steps=max_steps,
+        save_dynamics=save_dynamics,
+    )
