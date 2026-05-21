@@ -6,3 +6,8 @@ panel:
   name: electra_small_cartography_full_panel
   results_dir: results/panel_electra_small
   resume: true
+
+model:
+  short_name: electra_small
+  name_or_path: google/electra-small-discriminator
+  max_seq_length: 384
