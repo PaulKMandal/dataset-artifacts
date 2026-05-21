@@ -725,3 +725,8 @@ def run_final_audits(cfg: dict[str, Any], *, log_path: Path, dry_run: bool) -> N
     results_dir = Path(cfg["panel"]["results_dir"])
     run_cmd([sys.executable, "scripts/audit_evalsets.py", "--results-dir", str(results_dir)], log_path=log_path, dry_run=dry_run)
     run_cmd([sys.executable, "scripts/validate_results_tree.py", "--results-dir", str(results_dir)], log_path=log_path, dry_run=dry_run)
+
+def aggregate(cfg: dict[str, Any], *, log_path: Path, dry_run: bool) -> None:
+    aggregate_metrics_tables(cfg, log_path=log_path, dry_run=dry_run)
+    run_mechanism_analysis(cfg, log_path=log_path, dry_run=dry_run)
+    run_final_audits(cfg, log_path=log_path, dry_run=dry_run)
