@@ -387,3 +387,20 @@ def full_seed42_spec(cfg: dict[str, Any]) -> TrainSpec:
         max_steps=None,
         save_dynamics=True,
     )
+
+def cartography_args(cfg: dict[str, Any], source_spec: TrainSpec, out_dir: Path, definition: dict[str, Any]) -> list[str]:
+    args = [
+        sys.executable,
+        "dynamics.py",
+        "--td_dir",
+        source_spec.output_dir,
+        "--output_dir",
+        str(out_dir),
+        "--confidence_field",
+        definition["field"],
+        "--seed",
+        str(source_spec.seed),
+    ]
+    if cfg["cartography"].get("limit_scatter_samples"):
+        args.extend(["--limit_scatter_samples", str(cfg["cartography"]["limit_scatter_samples"])])
+    return args
