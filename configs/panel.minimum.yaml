@@ -33,3 +33,18 @@ data:
   squad_dev_json: null
   addsent_json: null
   addonesent_json: null
+
+cartography:
+  source_seed: 42
+  primary: joint
+  random_draws: 5
+  random_seed_base: 7300
+  subset_fractions: [0.333]
+  limit_scatter_samples: 20000
+  definitions:
+    joint:
+      field: joint_confidence
+      label: joint_gold_span_probability
+    endpoint:
+      field: confidence
+      label: endpoint_mean_gold_probability
