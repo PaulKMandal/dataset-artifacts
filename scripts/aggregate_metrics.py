@@ -1,17 +1,26 @@
 #!/usr/bin/env python3
-"""Aggregate run-level metric JSON files into seed-level and main tables.
+"""Aggregate run-level metric JSON files into paper tables.
 
 Usage:
   python scripts/aggregate_metrics.py --metrics-dir results/metrics/raw --out-dir results/metrics
 
-Expected input: one JSON file per run/evalset with fields described in RESULTS_SCHEMA.md.
+Expected input: one JSON file per train-run/evalset with fields described in
+RESULTS_SCHEMA.md. The output tables are generated only from saved metrics; no
+manual table editing is needed.
 """
+
+from __future__ import annotations
 
 import argparse
 import json
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
+
+
+KEY_COLS = ["model", "train_subset", "subset_fraction", "subset_draw_id", "seed", "train_budget_type"]
+GROUP_COLS = ["model", "train_subset", "subset_fraction", "train_budget_type", "confidence_definition"]
 
 
 def load_metrics(metrics_dir: Path) -> pd.DataFrame:
