@@ -70,3 +70,7 @@ def answer_sentence(context: str, answer_start: int | None) -> str:
 def added_sentences(clean_context: str, adv_context: str) -> list[str]:
     clean = {normalize_answer(sent) for _, _, sent in sentences(clean_context)}
     return [sent for _, _, sent in sentences(adv_context) if normalize_answer(sent) not in clean]
+
+def question_type(question: str) -> str:
+    stripped = question.strip().lower()
+    return stripped.split(maxsplit=1)[0].rstrip(":?") if stripped else ""
