@@ -356,3 +356,34 @@ def ensure_data(cfg: dict[str, Any], *, log_path: Path, dry_run: bool) -> None:
         if data_cfg.get(key):
             args.extend([cli, str(data_cfg[key])])
     run_cmd(args, log_path=log_path, dry_run=dry_run)
+
+def full_seed42_spec(cfg: dict[str, Any]) -> TrainSpec:
+    panel = cfg["panel"]
+    model = cfg["model"]
+    training = cfg["training"]
+    seed = int(cfg["cartography"].get("source_seed", 42))
+    run_id = make_run_id(
+        model["short_name"],
+        "full",
+        1.0,
+        seed,
+        "same_epochs",
+        confidence_definition=cfg["cartography"]["primary"],
+        primary_confidence_definition=cfg["cartography"]["primary"],
+    )
+    return TrainSpec(
+        run_id=run_id,
+        model_short=model["short_name"],
+        model_name=model["name_or_path"],
+        train_subset="full",
+        subset_fraction=1.0,
+        subset_draw_id=None,
+        seed=seed,
+        train_budget_type="same_epochs",
+        train_data=cfg["data"]["squad_train"],
+        output_dir=str(Path(panel["results_dir"]) / "runs" / run_id),
+        confidence_definition=cfg["cartography"]["primary"],
+        num_train_epochs=float(training["num_train_epochs"]),
+        max_steps=None,
+        save_dynamics=True,
+    )
