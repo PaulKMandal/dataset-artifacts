@@ -75,3 +75,7 @@ experiments:
     fraction: 0.333
     seeds: [42]
     random_draws: 1
+  hard_33_same_steps:
+    enabled: true
+    fraction: 0.333
+    seeds: [42]
