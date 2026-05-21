@@ -33,7 +33,13 @@ def _load_dataset(task: str, dataset_arg: str | None):
     default_datasets = {"qa": ("squad",), "nli": ("snli",)}
     dataset_id = tuple(dataset_arg.split(":")) if dataset_arg is not None else default_datasets[task]
     eval_split = "validation_matched" if dataset_id == ("glue", "mnli") else "validation"
-    dataset = datasets.load_dataset(*dataset_id)
+    load_kwargs = {}
+    # The adversarial SQuAD HF dataset uses a dataset script/config pair.
+    # Passing trust_remote_code keeps this path usable with recent versions of
+    # `datasets`; local JSONL materialization remains the preferred panel path.
+    if dataset_id and dataset_id[0] == "stanfordnlp/squad_adversarial":
+        load_kwargs["trust_remote_code"] = True
+    dataset = datasets.load_dataset(*dataset_id, **load_kwargs)
     return dataset, dataset_id, eval_split
 
 
