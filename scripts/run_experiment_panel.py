@@ -472,3 +472,10 @@ def run_subset_selection(
         return
     args = subset_selection_args(cfg, csv_path, subsets_out, assignments_out, name, definition)
     run_cmd(args, log_path=log_path, dry_run=dry_run)
+
+def publish_primary_cartography(cfg: dict[str, Any], *, dry_run: bool) -> None:
+    primary = cfg["cartography"]["primary"]
+    primary_csv = Path(cfg["panel"]["results_dir"]) / "cartography" / primary / "cartography_scores.csv"
+    top_csv = Path(cfg["panel"]["results_dir"]) / "cartography" / "cartography_scores.csv"
+    if primary_csv.exists() and not dry_run:
+        shutil.copy2(primary_csv, top_csv)
