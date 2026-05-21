@@ -54,3 +54,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no-resume", action="store_true")
     parser.add_argument("--limit-runs", type=int, default=None, help="Debugging aid; do not use for final tables.")
     return parser.parse_args()
+
+def now_utc() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
