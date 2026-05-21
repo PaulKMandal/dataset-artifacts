@@ -223,3 +223,32 @@ def train_model(cfg: dict[str, Any], spec: TrainSpec, *, log_path: Path, dry_run
     out_dir.mkdir(parents=True, exist_ok=True)
     write_train_config_copy(cfg, spec)
     run_cmd(base_train_args(cfg, spec), log_path=log_path, dry_run=dry_run)
+
+def eval_args(cfg: dict[str, Any], spec: TrainSpec, eval_path: str, eval_out: Path) -> list[str]:
+    model = cfg["model"]
+    training = cfg["training"]
+    args = [
+        sys.executable,
+        "run.py",
+        "--do_eval",
+        "--task",
+        "qa",
+        "--dataset",
+        eval_path,
+        "--model",
+        spec.output_dir,
+        "--output_dir",
+        str(eval_out),
+        "--overwrite_output_dir",
+        "--max_length",
+        str(model["max_seq_length"]),
+        "--per_device_eval_batch_size",
+        str(training["per_device_eval_batch_size"]),
+        "--seed",
+        str(spec.seed),
+        "--report_to",
+        "none",
+    ]
+    if training.get("fp16_eval", training.get("fp16", False)):
+        args.append("--fp16")
+    return args
