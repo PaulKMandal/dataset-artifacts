@@ -50,3 +50,6 @@ cartography:
       label: endpoint_mean_gold_probability
 
 experiments:
+  full_baseline:
+    enabled: true
+    seeds: [13, 21, 42]
