@@ -730,3 +730,10 @@ def aggregate(cfg: dict[str, Any], *, log_path: Path, dry_run: bool) -> None:
     aggregate_metrics_tables(cfg, log_path=log_path, dry_run=dry_run)
     run_mechanism_analysis(cfg, log_path=log_path, dry_run=dry_run)
     run_final_audits(cfg, log_path=log_path, dry_run=dry_run)
+
+def prepare_results_dir(cfg: dict[str, Any], config_path: str) -> Path:
+    results_dir = Path(cfg["panel"]["results_dir"])
+    results_dir.mkdir(parents=True, exist_ok=True)
+    (results_dir / "configs").mkdir(parents=True, exist_ok=True)
+    shutil.copy2(config_path, results_dir / "configs" / Path(config_path).name)
+    return results_dir
