@@ -90,3 +90,17 @@ def answer_summary(example: dict) -> tuple[str, str, str]:
 def question_type(question: str) -> str:
     stripped = question.strip().lower()
     return stripped.split(maxsplit=1)[0].rstrip(":?") if stripped else ""
+
+def select_indices(scores: dict[int, dict], subset: str, k: int) -> list[int]:
+    rows = list(scores.values())
+    if subset == "easy":
+        rows.sort(key=lambda r: (-r["confidence"], r["variability"], -r["correctness"], r["idx"]))
+    elif subset == "hard":
+        rows.sort(key=lambda r: (r["confidence"], r["correctness"], -r["variability"], r["idx"]))
+    elif subset == "ambiguous":
+        # Prefer high variability; tie-break toward mid confidence rather than
+        # trivially easy or hard examples.
+        rows.sort(key=lambda r: (-r["variability"], abs(r["confidence"] - 0.5), r["idx"]))
+    else:
+        raise ValueError(f"Unknown cartography subset: {subset}")
+    return [int(r["idx"]) for r in rows[:k]]
