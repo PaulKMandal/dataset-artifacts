@@ -117,3 +117,17 @@ def mechanism_row(clean: dict, adv: dict, evalset: str, cart: dict) -> dict:
         "question_distractor_overlap": max([overlap(q, sent) for sent in added], default=0.0),
         "num_added_sentences": len(added),
     }
+
+def build_rows(args: Namespace) -> list[dict]:
+    clean_by_id = {row["id"]: row for row in read_jsonl(Path(args.clean_predictions))}
+    cart_path = Path(args.cartography_scores) if args.cartography_scores else None
+    cart_by_id = load_cartography_by_id(cart_path)
+    out_rows = []
+    for adv_path_str in args.adversarial_predictions:
+        adv_path = Path(adv_path_str)
+        evalset = adv_path.stem.split("__")[-1]
+        for adv in read_jsonl(adv_path):
+            clean = clean_by_id.get(adv["id"])
+            if clean is not None:
+                out_rows.append(mechanism_row(clean, adv, evalset, cart_by_id.get(adv["id"], {})))
+    return out_rows
