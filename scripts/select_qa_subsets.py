@@ -218,3 +218,26 @@ def assignment_row(
         "selected_ambiguous": idx in selected_by_name["ambiguous"],
         "selected_hard": idx in selected_by_name["hard"],
     }
+
+def append_assignment_rows(
+    rows: list[dict],
+    by_idx: dict[int, dict],
+    scores: dict[int, dict],
+    selected_by_name: dict[str, set[int]],
+    all_indices: list[int],
+    args: Namespace,
+    *,
+    frac: float,
+) -> None:
+    for rank, idx in enumerate(all_indices):
+        rows.append(
+            assignment_row(
+                idx,
+                by_idx[idx],
+                scores[idx],
+                selected_by_name,
+                args,
+                frac=frac,
+                rank=rank,
+            )
+        )
