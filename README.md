@@ -137,23 +137,6 @@ scripts/remote_run.sh uv run python run.py \
 PULL_MODELS=1 scripts/pull_results.sh
 ```
 
-## Using this handoff
-
-The handoff ZIP includes the original `.git` history from the uploaded repository plus a new branch and commit. After unzipping:
-
-```bash
-cd dataset-artifacts
-git status
-git log --oneline --decorate --max-count=3
-git push -u origin fast-dynamics-nix-uv
-```
-
-If GitHub does not attribute the commit to your account, amend the author email to the exact no-reply email shown in GitHub Settings -> Emails:
-
-```bash
-git commit --amend --author='PaulKMandal <EXACT_NOREPLY_FROM_GITHUB_SETTINGS>' --no-edit
-```
-
 ## Notes on validity
 
 The scalar logger preserves the old QA confidence definition by default: average of the gold start/end probabilities. It also logs `joint_confidence`, which is often a better span-level signal. Because SQuAD contexts may create multiple overflow features per raw example, the cartography score for one `idx` may aggregate multiple feature windows. This is documented and should be considered when interpreting example-level regions.
