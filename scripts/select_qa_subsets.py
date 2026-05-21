@@ -50,3 +50,12 @@ def read_jsonl(path: Path) -> list[dict]:
             if line.strip():
                 rows.append(json.loads(line))
     return rows
+
+def write_jsonl(rows: Iterable[dict], path: Path) -> int:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    count = 0
+    with path.open("w", encoding="utf-8") as f:
+        for row in rows:
+            f.write(json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n")
+            count += 1
+    return count
