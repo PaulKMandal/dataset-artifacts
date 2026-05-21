@@ -613,3 +613,35 @@ def add_tier_a_specs(specs: dict[str, TrainSpec], cfg: dict[str, Any]) -> None:
 def add_same_steps_specs(specs: dict[str, TrainSpec], cfg: dict[str, Any], same_steps: int) -> None:
     add_random_fraction_specs(specs, cfg, "random_33_same_steps", "same_steps", max_steps=same_steps)
     add_named_fraction_specs(specs, cfg, "hard_33_same_steps", "hard", "same_steps", max_steps=same_steps)
+
+def add_budget_curve_specs(specs: dict[str, TrainSpec], cfg: dict[str, Any]) -> None:
+    primary = cfg["cartography"]["primary"]
+    for exp_name in ["budget_10", "budget_20", "budget_50"]:
+        exp = cfg["experiments"].get(exp_name, {})
+        if not exp.get("enabled", False):
+            continue
+        frac = float(exp["fraction"])
+        for subset in exp["subsets"]:
+            for seed in exp["seeds"]:
+                if subset == "random":
+                    for draw_id in range(int(exp["random_draws"])):
+                        add_spec(
+                            specs,
+                            cfg,
+                            subset="random",
+                            frac=frac,
+                            draw_id=draw_id,
+                            seed=int(seed),
+                            budget="same_epochs",
+                            train_data=subset_path(cfg, primary, "random", frac, draw_id),
+                        )
+                else:
+                    add_spec(
+                        specs,
+                        cfg,
+                        subset=subset,
+                        frac=frac,
+                        seed=int(seed),
+                        budget="same_epochs",
+                        train_data=subset_path(cfg, primary, subset, frac),
+                    )
