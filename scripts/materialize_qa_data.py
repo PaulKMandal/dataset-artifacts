@@ -130,3 +130,11 @@ def materialize_addsent(args: Namespace, out_dir: Path) -> dict:
         "stanfordnlp/squad_adversarial", "AddSent", trust_remote_code=args.trust_remote_code
     )
     return materialize_one("addsent", dataset_records(addsent, "validation", with_idx=False), out_dir)
+
+def materialize_addonesent(args: Namespace, out_dir: Path) -> dict:
+    if args.addonesent_json:
+        return materialize_one("addonesent", flatten_squad_json(Path(args.addonesent_json), with_idx=False), out_dir)
+    addonesent = datasets.load_dataset(
+        "stanfordnlp/squad_adversarial", "AddOneSent", trust_remote_code=args.trust_remote_code
+    )
+    return materialize_one("addonesent", dataset_records(addonesent, "validation", with_idx=False), out_dir)
