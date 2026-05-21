@@ -26,3 +26,6 @@ def normalize_answer(text: str) -> str:
         return "".join(ch for ch in s if ch not in exclude)
 
     return white_space_fix(remove_articles(remove_punc(text.lower())))
+
+def exact_match_score(prediction: str, ground_truth: str) -> float:
+    return float(normalize_answer(prediction) == normalize_answer(ground_truth))
