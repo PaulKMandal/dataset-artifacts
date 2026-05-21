@@ -136,3 +136,22 @@ def model_file_exists(out_dir: Path) -> bool:
     has_config = (out_dir / "config.json").exists()
     has_weights = (out_dir / "model.safetensors").exists() or (out_dir / "pytorch_model.bin").exists()
     return has_config and has_weights
+
+def make_run_id(
+    model_short: str,
+    subset: str,
+    frac: float,
+    seed: int,
+    budget: str,
+    *,
+    draw_id: int | None = None,
+    confidence_definition: str | None = None,
+    primary_confidence_definition: str | None = None,
+) -> str:
+    parts = [model_short, subset, f"frac{fraction_label(frac)}"]
+    if draw_id is not None:
+        parts.append(f"draw{draw_id:02d}")
+    if confidence_definition and confidence_definition != primary_confidence_definition:
+        parts.append(confidence_definition)
+    parts.extend([f"seed{seed}", budget])
+    return "__".join(parts)
