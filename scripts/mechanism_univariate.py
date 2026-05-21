@@ -68,3 +68,16 @@ def summarize_feature(evalset: str, group: pd.DataFrame, feature: str) -> dict |
         "roc_auc_abs_best_direction": max(auc, auc_flipped),
         "average_precision_flipped": ap_flipped,
     }
+
+def build_rows(df: pd.DataFrame) -> list[dict]:
+    rows = []
+    for evalset, group in df.groupby("evalset"):
+        y = group["adversarial_failure"].astype(float).to_numpy()
+        if len(np.unique(y)) < 2:
+            continue
+        for feature in CANDIDATE_FEATURES:
+            if feature in group:
+                row = summarize_feature(evalset, group, feature)
+                if row is not None:
+                    rows.append(row)
+    return rows
