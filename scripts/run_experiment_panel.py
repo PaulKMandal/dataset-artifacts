@@ -672,3 +672,18 @@ def build_specs(cfg: dict[str, Any], same_steps: int) -> list[TrainSpec]:
     add_budget_curve_specs(specs, cfg)
     add_confidence_ablation_specs(specs, cfg)
     return list(specs.values())
+
+def aggregate_metrics_tables(cfg: dict[str, Any], *, log_path: Path, dry_run: bool) -> None:
+    results_dir = Path(cfg["panel"]["results_dir"])
+    run_cmd(
+        [
+            sys.executable,
+            "scripts/aggregate_metrics.py",
+            "--metrics-dir",
+            str(results_dir / "metrics" / "raw"),
+            "--out-dir",
+            str(results_dir / "metrics"),
+        ],
+        log_path=log_path,
+        dry_run=dry_run,
+    )
