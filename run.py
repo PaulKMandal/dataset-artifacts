@@ -20,6 +20,7 @@ from helpers import (
     prepare_train_dataset_qa,
     prepare_validation_dataset_qa,
 )
+from qa_metrics import squad_exact_match, squad_f1
 
 NUM_PREPROCESSING_WORKERS = int(os.environ.get("DATASET_ARTIFACTS_PREPROCESSING_WORKERS", "2"))
 
