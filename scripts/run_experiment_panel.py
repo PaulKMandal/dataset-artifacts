@@ -737,3 +737,16 @@ def prepare_results_dir(cfg: dict[str, Any], config_path: str) -> Path:
     (results_dir / "configs").mkdir(parents=True, exist_ok=True)
     shutil.copy2(config_path, results_dir / "configs" / Path(config_path).name)
     return results_dir
+
+def run_training_and_eval_specs(
+    cfg: dict[str, Any],
+    specs: list[TrainSpec],
+    *,
+    log_path: Path,
+    dry_run: bool,
+    resume: bool,
+) -> None:
+    for spec in specs:
+        train_model(cfg, spec, log_path=log_path, dry_run=dry_run, resume=resume)
+        for evalset, eval_path in cfg["data"]["evalsets"].items():
+            eval_model(cfg, spec, evalset, eval_path, log_path=log_path, dry_run=dry_run, resume=resume)
