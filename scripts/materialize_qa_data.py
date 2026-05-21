@@ -69,3 +69,22 @@ def normalize_record(record: dict, idx: int | None = None) -> dict:
     elif "idx" in record and record["idx"] is not None:
         out["idx"] = int(record["idx"])
     return out
+
+def flatten_squad_json(path: Path, *, with_idx: bool = False) -> Iterable[dict]:
+    with path.open("r", encoding="utf-8") as f:
+        payload = json.load(f)
+    idx = 0
+    for article in payload.get("data", []):
+        title = article.get("title", "")
+        for paragraph in article.get("paragraphs", []):
+            context = paragraph["context"]
+            for qa in paragraph.get("qas", []):
+                record = {
+                    "id": qa["id"],
+                    "title": title,
+                    "context": context,
+                    "question": qa["question"],
+                    "answers": qa.get("answers", []),
+                }
+                yield normalize_record(record, idx if with_idx else None)
+                idx += 1
