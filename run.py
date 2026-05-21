@@ -139,7 +139,10 @@ def main():
         train_dataset = dataset["train"]
         if args.max_train_samples:
             train_dataset = train_dataset.select(range(args.max_train_samples))
-        train_dataset = train_dataset.map(lambda ex, idx: {"idx": idx}, with_indices=True)
+        # Preserve an existing stable original-example index in materialized
+        # subset JSONL files. HF SQuAD has no idx column, so we add one there.
+        if "idx" not in train_dataset.column_names:
+            train_dataset = train_dataset.map(lambda ex, idx: {"idx": idx}, with_indices=True)
         train_dataset_featurized = train_dataset.map(
             prepare_train_dataset,
             batched=True,
