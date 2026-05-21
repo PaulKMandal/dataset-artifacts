@@ -42,3 +42,7 @@ def f1_score(prediction: str, ground_truth: str) -> float:
     precision = num_same / len(prediction_tokens)
     recall = num_same / len(ground_truth_tokens)
     return 2 * precision * recall / (precision + recall)
+
+def metric_max_over_ground_truths(prediction: str, ground_truths: Iterable[str], metric_fn) -> float:
+    scores = [metric_fn(prediction, ground_truth) for ground_truth in ground_truths]
+    return max(scores) if scores else 0.0
