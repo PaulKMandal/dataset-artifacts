@@ -61,6 +61,13 @@ def _metrics_from_record(record, confidence_field="confidence"):
     if confidence_field in record and "correctness" in record:
         return float(record[confidence_field]), float(record["correctness"])
 
+    if confidence_field == "negative_gold_span_loss" and "correctness" in record:
+        if "start_logp" not in record or "end_logp" not in record:
+            raise ValueError("negative_gold_span_loss requires start_logp and end_logp fields")
+        # Cross-entropy loss is -(log p_start_gold + log p_end_gold).
+        # Use its negative so higher values remain better for selection.
+        return float(record["start_logp"] + record["end_logp"]), float(record["correctness"])
+
     # Backward-compatible NLI path.
     if "prob" in record:
         probs = np.array(record["prob"], dtype=np.float64)
