@@ -80,3 +80,4 @@ experiments:
     fraction: 0.333
     seeds: [42]
   budget_10: {enabled: false}
+  budget_20: {enabled: false}
