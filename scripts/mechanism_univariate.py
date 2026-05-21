@@ -81,3 +81,12 @@ def build_rows(df: pd.DataFrame) -> list[dict]:
                 if row is not None:
                     rows.append(row)
     return rows
+
+def write_rows(rows: list[dict], out: Path) -> None:
+    if not rows:
+        raise SystemExit("No usable univariate mechanism rows")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        writer.writeheader()
+        writer.writerows(rows)
