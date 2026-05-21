@@ -49,3 +49,6 @@ def metric_max_over_ground_truths(prediction: str, ground_truths: Iterable[str],
 
 def squad_exact_match(prediction: str, answers: dict) -> float:
     return metric_max_over_ground_truths(prediction, answers.get("text", []), exact_match_score)
+
+def squad_f1(prediction: str, answers: dict) -> float:
+    return metric_max_over_ground_truths(prediction, answers.get("text", []), f1_score)
