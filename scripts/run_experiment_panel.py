@@ -97,3 +97,28 @@ def capture_cmd(args: list[str]) -> str:
         return subprocess.check_output(args, stderr=subprocess.STDOUT, text=True).strip()
     except Exception as exc:  # noqa: BLE001 - environment logging should not fail the panel
         return f"FAILED {shlex.join(args)}: {exc}"
+
+def environment_lines() -> list[str]:
+    lines = [
+        f"created_at_utc={now_utc()}",
+        f"python={sys.executable}",
+        capture_cmd([sys.executable, "--version"]),
+        "",
+        "uv:",
+        capture_cmd(["uv", "--version"]),
+        "",
+        "nix:",
+        capture_cmd(["nix", "--version"]),
+        "",
+        "nvidia-smi:",
+        capture_cmd(["nvidia-smi", "-L"]),
+        "",
+        "torch:",
+        capture_cmd([sys.executable, "-c", "import torch; print(torch.__version__, torch.version.cuda, torch.cuda.is_available())"]),
+        "",
+        "environment:",
+    ]
+    for key in sorted(os.environ):
+        if key.startswith(("CUDA", "DATASET_ARTIFACTS", "HF_", "TRANSFORMERS", "UV_")):
+            lines.append(f"{key}={os.environ[key]}")
+    return lines
