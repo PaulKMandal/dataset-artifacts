@@ -609,3 +609,7 @@ def add_tier_a_specs(specs: dict[str, TrainSpec], cfg: dict[str, Any]) -> None:
     add_random_fraction_specs(specs, cfg, "random_33", "same_epochs")
     for exp_name, subset in [("easy_33", "easy"), ("ambiguous_33", "ambiguous"), ("hard_33", "hard")]:
         add_named_fraction_specs(specs, cfg, exp_name, subset, "same_epochs")
+
+def add_same_steps_specs(specs: dict[str, TrainSpec], cfg: dict[str, Any], same_steps: int) -> None:
+    add_random_fraction_specs(specs, cfg, "random_33_same_steps", "same_steps", max_steps=same_steps)
+    add_named_fraction_specs(specs, cfg, "hard_33_same_steps", "hard", "same_steps", max_steps=same_steps)
