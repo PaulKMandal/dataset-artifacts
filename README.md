@@ -1,74 +1,159 @@
 # dataset-artifacts
 
-Project by Kaj Bostrom, Jifan Chen, and Greg Durrett. Code by Kaj Bostrom and Jifan Chen. Modified by Paul Mandal
+Project by Kaj Bostrom, Jifan Chen, and Greg Durrett. Code by Kaj Bostrom and Jifan Chen. Modified by Paul Mandal.
 
-## Getting Started
-You'll need Python >= 3.6 to run the code in this repo.
+This package adds a reproducible Nix + uv environment and replaces the slow QA training-dynamics logger with a scalar logger suitable for dataset cartography.
 
-First, clone the repository:
+## What is `training_dynamics.jsonl`?
 
-`git clone git@github.com:PaulKMandal/dataset-artifacts.git`
+`training_dynamics.jsonl` is the raw training-time log emitted when `run.py` is called with `--save_dynamics`. It is not the final cartography table. Each JSONL row records what the model did on one training feature at one training step/epoch.
 
-Then install the dependencies:
+For NLI rows, the important fields are:
 
-`pip install --upgrade pip`
+- `idx`: original training example index
+- `epoch`, `step`: when the row was observed
+- `confidence`: probability assigned to the gold label
+- `correctness`: whether the predicted label matched the gold label
+- `label`, `pred_label`
 
-`pip install -r requirements.txt`
+For QA rows, the important fields are:
 
-If you're running on a shared machine and don't have the privileges to install Python packages globally,
-or if you just don't want to install these packages permanently, take a look at the "Virtual environments"
-section further down in the README.
+- `idx`: original SQuAD example index
+- `epoch`, `step`: when the row was observed
+- `confidence`: average of p(gold start) and p(gold end), matching the old code's definition
+- `joint_confidence`: p(gold start) * p(gold end)
+- `correctness`: whether predicted start and end exactly matched the feature's gold start/end labels
+- `start_position`, `end_position`, `pred_start`, `pred_end`
 
-To make sure pip is installing packages for the right Python version, run `pip --version`
-and check that the path it reports is for the right Python interpreter.
+The previous implementation wrote full `start_prob` and `end_prob` arrays for every QA feature. This package writes scalar fields only, which avoids serializing huge probability vectors.
 
-## Training and evaluating a model
-To train an ELECTRA-small model on the SNLI natural language inference dataset, you can run the following command:
+## What does `dynamics.py` do?
 
-`python3 run.py --do_train --task nli --dataset snli --output_dir ./snli_trained_model/`
+`dynamics.py` converts raw training dynamics into dataset-cartography coordinates:
 
-Checkpoints will be written to sub-folders of the `trained_model` output directory.
-To evaluate the final trained model on the SNLI dev set, you can use
+- confidence: mean confidence across records for an example
+- variability: standard deviation of confidence across records
+- correctness: mean correctness across records
+- region: `Easy-to-learn`, `Ambiguous`, or `Hard-to-learn`
 
-`python3 run.py --do_eval --task nli --dataset snli --model ./snli_trained_model/ --output_dir ./nli_eval_output/`
+It also writes plots and `categorized_examples.json`.
 
-To prevent `run.py` from trying to use a GPU for training, pass the argument `--no_cuda`.
+Example:
 
-To train/evaluate a question answering model on SQuAD instead, change `--task nli` and `--dataset snli` to `--task qa` and `--dataset squad`. E.g.
+```bash
+uv run python dynamics.py \
+  --td_dir results/squad_smoke \
+  --output_dir results/squad_smoke/cartography \
+  --confidence_field confidence
+```
 
-`python3 run.py --do_train --task qa --dataset squad --output_dir ./squad_trained_model/`
+The output CSV is `cartography_scores.csv`.
 
-**Descriptions of other important arguments are available in the comments in `run.py`.**
+## Local setup for LSP / CPU checks
 
-Data and models will be automatically downloaded and cached in `~/.cache/huggingface/`.
-To change the caching directory, you can modify the shell environment variable `HF_HOME` or `TRANSFORMERS_CACHE`.
-For more details, see [this doc](https://huggingface.co/transformers/v4.0.1/installation.html#caching-models).
+```bash
+nix develop .#default
+uv sync --extra cpu --group dev
+uv run pytest
+uv run python -m py_compile run.py helpers.py dynamics.py compare_adversarial.py
+```
 
-An ELECTRA-small based NLI model trained on SNLI for 3 epochs (e.g. with the command above) should achieve an accuracy of around 89%, depending on batch size.
-An ELECTRA-small based QA model trained on SQuAD for 3 epochs should achieve around 78 exact match score and 86 F1 score.
+This gives a CPU-only Python environment for local editing and LSP use.
 
-## Working with datasets
-This repo uses [Huggingface Datasets](https://huggingface.co/docs/datasets/) to load data.
-The Dataset objects loaded by this module can be filtered and updated easily using the `Dataset.filter` and `Dataset.map` methods.
-For more information on working with datasets loaded as HF Dataset objects, see [this page](https://huggingface.co/docs/datasets/process.html).
+## GPU server setup
 
-## Virtual environments
-Python 3 supports virtual environments with the `venv` module. These will let you select a particular Python interpreter
-to be the default (so that you can run it with `python`) and install libraries only for a particular project.
-To set up a virtual environment, use the following command:
+On the GPU server:
 
-`python3 -m venv path/to/my_venv_dir`
+```bash
+nix develop .#server
+uv sync --extra cuda --group dev
+uv run python - <<'PY'
+import torch
+print(torch.__version__)
+print(torch.version.cuda)
+print(torch.cuda.is_available())
+PY
+```
 
-This will set up a virtual environment in the target directory.
-WARNING: This command overwrites the target directory, so choose a path that doesn't exist yet!
+The CUDA extra uses PyTorch CUDA 12.1 wheels. That is intentional: your server driver reports CUDA 13.0 support, and NVIDIA drivers are backward-compatible with CUDA runtime versions used by PyTorch wheels.
 
-To activate your virtual environment (so that `python` redirects to the right version, and your virtual environment packages are active),
-use this command:
+## One-GPU smoke test
 
-`source my_venv_dir/bin/activate`
+```bash
+CUDA_VISIBLE_DEVICES=0 uv run python run.py \
+  --do_train \
+  --do_eval \
+  --task qa \
+  --dataset squad \
+  --output_dir results/smoke_squad_fast_dynamics \
+  --overwrite_output_dir \
+  --max_train_samples 2048 \
+  --max_eval_samples 512 \
+  --max_length 128 \
+  --per_device_train_batch_size 32 \
+  --per_device_eval_batch_size 64 \
+  --num_train_epochs 1 \
+  --save_only_final_model \
+  --save_dynamics \
+  --fp16 \
+  --report_to none
 
-This command looks slightly different if you're not using `bash` on Linux. The [venv docs](https://docs.python.org/3/library/venv.html) have a list of alternate commands for different systems.
+uv run python dynamics.py \
+  --td_dir results/smoke_squad_fast_dynamics \
+  --output_dir results/smoke_squad_fast_dynamics/cartography
+```
 
-Once you've activated your virtual environment, you can use `pip` to install packages the way you normally would, but the installed
-packages will stay in the virtual environment instead of your global Python installation. Only the virtual environment's Python
-executable will be able to see these packages.
+## Laptop to server workflow
+
+Set these once in your local shell or keybind wrapper:
+
+```bash
+export DATASET_ARTIFACTS_SERVER='your-server-alias'
+export DATASET_ARTIFACTS_REMOTE_DIR='~/dataset-artifacts'
+export DATASET_ARTIFACTS_LOCAL_RESULTS_DIR='./server_results'
+```
+
+Then run a server command from the laptop:
+
+```bash
+scripts/remote_run.sh uv run python run.py \
+  --do_train --do_eval --task qa --dataset squad \
+  --output_dir results/squad_seed42 \
+  --overwrite_output_dir \
+  --max_length 384 \
+  --per_device_train_batch_size 32 \
+  --per_device_eval_batch_size 64 \
+  --num_train_epochs 3 \
+  --save_only_final_model \
+  --save_dynamics \
+  --fp16 \
+  --seed 42 \
+  --report_to none
+```
+
+`scripts/remote_run.sh` rsyncs the repo to the server, runs the command inside `nix develop .#server`, and then calls `scripts/pull_results.sh`. By default, result files and metrics are copied back, but model weights are excluded. To pull weights too:
+
+```bash
+PULL_MODELS=1 scripts/pull_results.sh
+```
+
+## Using this handoff
+
+The handoff ZIP includes the original `.git` history from the uploaded repository plus a new branch and commit. After unzipping:
+
+```bash
+cd dataset-artifacts
+git status
+git log --oneline --decorate --max-count=3
+git push -u origin fast-dynamics-nix-uv
+```
+
+If GitHub does not attribute the commit to your account, amend the author email to the exact no-reply email shown in GitHub Settings -> Emails:
+
+```bash
+git commit --amend --author='PaulKMandal <EXACT_NOREPLY_FROM_GITHUB_SETTINGS>' --no-edit
+```
+
+## Notes on validity
+
+The scalar logger preserves the old QA confidence definition by default: average of the gold start/end probabilities. It also logs `joint_confidence`, which is often a better span-level signal. Because SQuAD contexts may create multiple overflow features per raw example, the cartography score for one `idx` may aggregate multiple feature windows. This is documented and should be considered when interpreting example-level regions.
