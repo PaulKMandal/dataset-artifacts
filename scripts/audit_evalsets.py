@@ -14,3 +14,11 @@ EXPECTED_COUNTS = {
     "addsent": 3560,
     "addonesent": 1787,
 }
+
+def load_metrics(results_dir: Path) -> list[dict]:
+    rows = []
+    for path in sorted((results_dir / "metrics" / "raw").glob("*.json")):
+        row = json.loads(path.read_text(encoding="utf-8"))
+        row["metrics_file"] = str(path)
+        rows.append(row)
+    return rows
