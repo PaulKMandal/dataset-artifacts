@@ -250,3 +250,24 @@ def write_csv(rows: list[dict], path: Path) -> None:
         writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         writer.writeheader()
         writer.writerows(rows)
+
+def build_outputs(args: Namespace) -> tuple[Path, Path]:
+    _, by_idx, scores = load_inputs(args)
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    manifest_rows: list[dict] = []
+    assignment_rows: list[dict] = []
+    all_indices = sorted(scores)
+
+    for frac in args.fractions:
+        k = subset_size(len(scores), frac, args.rounding)
+        carto_rows, selected_by_name = select_cartography_subsets(by_idx, scores, out_dir, args, frac=frac, k=k)
+        manifest_rows.extend(carto_rows)
+        manifest_rows.extend(select_random_subsets(by_idx, all_indices, out_dir, args, frac=frac, k=k))
+        append_assignment_rows(assignment_rows, by_idx, scores, selected_by_name, all_indices, args, frac=frac)
+
+    manifest_path = out_dir / "subset_manifest.csv"
+    assignments_path = Path(args.assignments_out) if args.assignments_out else out_dir / "subset_assignments.csv"
+    write_csv(manifest_rows, manifest_path)
+    write_csv(assignment_rows, assignments_path)
+    return manifest_path, assignments_path
