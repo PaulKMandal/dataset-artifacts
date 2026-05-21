@@ -687,3 +687,36 @@ def aggregate_metrics_tables(cfg: dict[str, Any], *, log_path: Path, dry_run: bo
         log_path=log_path,
         dry_run=dry_run,
     )
+
+def run_mechanism_analysis(cfg: dict[str, Any], *, log_path: Path, dry_run: bool) -> None:
+    results_dir = Path(cfg["panel"]["results_dir"])
+    source_spec = full_seed42_spec(cfg)
+    clean_pred = results_dir / "predictions" / f"{source_spec.run_id}__squad_dev.jsonl"
+    adv_preds = [
+        results_dir / "predictions" / f"{source_spec.run_id}__addsent.jsonl",
+        results_dir / "predictions" / f"{source_spec.run_id}__addonesent.jsonl",
+    ]
+    mechanism_features = results_dir / "metrics" / "mechanism_features.csv"
+    if not dry_run and not (clean_pred.exists() and all(p.exists() for p in adv_preds)):
+        return
+    run_cmd(
+        [
+            sys.executable,
+            "scripts/build_mechanism_features.py",
+            "--clean-predictions",
+            str(clean_pred),
+            "--adversarial-predictions",
+            *[str(p) for p in adv_preds],
+            "--cartography-scores",
+            str(results_dir / "cartography" / "subset_assignments.csv"),
+            "--out",
+            str(mechanism_features),
+        ],
+        log_path=log_path,
+        dry_run=dry_run,
+    )
+    run_cmd(
+        [sys.executable, "scripts/mechanism_univariate.py", "--features", str(mechanism_features), "--out", str(results_dir / "metrics" / "mechanism_univariate.csv")],
+        log_path=log_path,
+        dry_run=dry_run,
+    )
