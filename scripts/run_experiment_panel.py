@@ -301,3 +301,19 @@ def normalized_eval_metrics(
         "confidence_definition": spec.confidence_definition,
         "created_at_utc": now_utc(),
     }
+
+def write_eval_metrics(
+    cfg: dict[str, Any],
+    spec: TrainSpec,
+    evalset: str,
+    eval_path: str,
+    eval_out: Path,
+    raw_metrics_path: Path,
+) -> None:
+    metrics_path, predictions_path = check_eval_outputs(eval_out)
+    predictions_dest = Path(cfg["panel"]["results_dir"]) / "predictions" / f"{spec.run_id}__{evalset}.jsonl"
+    predictions_dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(predictions_path, predictions_dest)
+    normalized = normalized_eval_metrics(cfg, spec, evalset, eval_path, metrics_path, predictions_dest)
+    raw_metrics_path.parent.mkdir(parents=True, exist_ok=True)
+    raw_metrics_path.write_text(json.dumps(normalized, indent=2, sort_keys=True), encoding="utf-8")
