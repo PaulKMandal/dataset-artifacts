@@ -422,3 +422,33 @@ def run_cartography_scores(
     else:
         run_cmd(cartography_args(cfg, source_spec, out_dir, definition), log_path=log_path, dry_run=dry_run)
     return csv_path
+
+def subset_selection_args(
+    cfg: dict[str, Any],
+    csv_path: Path,
+    subsets_out: Path,
+    assignments_out: Path,
+    name: str,
+    definition: dict[str, Any],
+) -> list[str]:
+    fractions = sorted({float(x) for x in cfg["cartography"]["subset_fractions"]})
+    return [
+        sys.executable,
+        "scripts/select_qa_subsets.py",
+        "--train-data",
+        cfg["data"]["squad_train"],
+        "--cartography-scores",
+        str(csv_path),
+        "--out-dir",
+        str(subsets_out),
+        "--assignments-out",
+        str(assignments_out),
+        "--confidence-definition",
+        definition.get("label", name),
+        "--random-draws",
+        str(cfg["cartography"].get("random_draws", 10)),
+        "--random-seed-base",
+        str(cfg["cartography"].get("random_seed_base", 7300)),
+        "--fractions",
+        *[str(x) for x in fractions],
+    ]
