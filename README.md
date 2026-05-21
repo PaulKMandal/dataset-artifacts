@@ -157,3 +157,24 @@ git commit --amend --author='PaulKMandal <EXACT_NOREPLY_FROM_GITHUB_SETTINGS>' -
 ## Notes on validity
 
 The scalar logger preserves the old QA confidence definition by default: average of the gold start/end probabilities. It also logs `joint_confidence`, which is often a better span-level signal. Because SQuAD contexts may create multiple overflow features per raw example, the cartography score for one `idx` may aggregate multiple feature windows. This is documented and should be considered when interpreting example-level regions.
+
+## NixOS / direnv activation on a new PC
+
+This branch includes a checked-in `.envrc` for local editing. On a NixOS or Home Manager setup, enable direnv + nix-direnv once in your system/user config, then approve the project:
+
+```bash
+cd exp/squad-electra-small-cartography
+nix develop .#default
+uv sync --frozen --extra cpu --group dev
+
+direnv allow
+```
+
+After `direnv allow`, opening a shell in the repo activates `nix develop .#default` automatically. Dependency syncing stays explicit by default; set `DIRENV_AUTO_UV_SYNC=1` only if you want `uv sync --frozen --extra cpu --group dev` to run during direnv reloads.
+
+Useful NixOS/Home Manager options:
+
+```nix
+programs.direnv.enable = true;
+programs.direnv.nix-direnv.enable = true;
+```
