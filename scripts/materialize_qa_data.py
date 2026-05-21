@@ -101,3 +101,8 @@ def write_jsonl(records: Iterable[dict], path: Path) -> int:
             f.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n")
             count += 1
     return count
+
+def materialize_one(name: str, records: Iterable[dict], out_dir: Path) -> dict:
+    path = out_dir / f"{name}.jsonl"
+    count = write_jsonl(records, path)
+    return {"name": name, "path": str(path), "num_examples": count, "sha256": sha256_file(path)}
